@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TravelBites - Live GPS, Weather & Travel Food Order with Multi-Payment System</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- QRCode.js library for dynamic payment QR generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              500: '#0284c7',
+              600: '#0284c7',
+              700: '#0369a1',
+              900: '#0c4a6e',
+            },
+            meta: {
+              start: '#0064e0',
+              mid: '#7f22fe',
+              end: '#ff2079'
+            },
+            phonepe: '#5f259f'
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Outfit', 'sans-serif'],
+          },
+          animation: {
+            'pulse-glow': 'pulseGlow 2s infinite',
+            'gradient-x': 'gradientX 6s ease infinite',
+            'spin-slow': 'spin 3s linear infinite',
+          },
+          keyframes: {
+            pulseGlow: {
+              '0%, 100%': { boxShadow: '0 0 15px rgba(127, 34, 254, 0.4)' },
+              '50%': { boxShadow: '0 0 25px rgba(255, 32, 121, 0.8)' },
+            },
+            gradientX: {
+              '0%, 100%': { 'background-size': '200% 200%', 'background-position': 'left center' },
+              '50%': { 'background-size': '200% 200%', 'background-position': 'right center' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.4); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(107, 114, 128, 0.7); }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .glass-effect {
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .dark .glass-effect {
+      background: rgba(15, 23, 42, 0.88);
+    }
+  </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans min-h-full flex flex-col transition-colors duration-200">
+
+  <!-- TOP HEADER -->
+  <header class="sticky top-0 z-40 glass-effect border-b border-slate-200 dark:border-slate-800 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      
+      <!-- Brand Logo -->
+      <div class="flex items-center gap-3 cursor-pointer" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-orange-500 to-red-500 flex items-center justify-center text-white shadow-md shadow-orange-500/20">
+          <i data-lucide="utensils-crossed" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <span class="font-display text-xl font-bold tracking-tight bg-gradient-to-r from-orange-600 via-amber-600 to-red-600 dark:from-orange-400 dark:to-red-400 bg-clip-text text-transparent">
+            TravelBites
+          </span>
+          <span class="hidden sm:inline-block text-xs text-slate-500 dark:text-slate-400 ml-2 font-medium px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800">
+            GPS & Multi-Payment
+          </span>
+        </div>
+      </div>
+
+      <!-- Mode Selector (Train vs Bus) -->
+      <div class="flex bg-slate-200 dark:bg-slate-800 p-1 rounded-xl">
+        <button id="btn-mode-train" onclick="switchMode('train')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-white dark:bg-slate-900 shadow-sm text-amber-600 dark:text-amber-400">
+          <i data-lucide="train" class="w-4 h-4"></i>
+          <span>Train Mode</span>
+        </button>
+        <button id="btn-mode-bus" onclick="switchMode('bus')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900">
+          <i data-lucide="bus" class="w-4 h-4"></i>
+          <span>Bus Mode</span>
+        </button>
+      </div>
+
+      <!-- Header Right Utilities -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <!-- Order History Trigger -->
+        <button onclick="toggleModal('history-modal')" class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5 transition" title="Order History">
+          <i data-lucide="receipt" class="w-4 h-4 text-amber-500"></i>
+          <span class="hidden md:inline">My Orders</span>
+        </button>
+
+        <!-- Group Room Button -->
+        <button onclick="toggleModal('group-modal')" class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+          <i data-lucide="users" class="w-4 h-4 text-emerald-500"></i>
+          <span>Group Room: <strong id="room-code-display" class="text-emerald-600 dark:text-emerald-400">TRV-8942</strong></span>
+        </button>
+
+        <!-- Dark Mode Toggle -->
+        <button onclick="toggleDarkMode()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition" title="Toggle Theme">
+          <i data-lucide="moon" class="w-4 h-4 hidden dark:block"></i>
+          <i data-lucide="sun" class="w-4 h-4 block dark:hidden"></i>
+        </button>
+
+        <!-- Cart Trigger -->
+        <button onclick="toggleDrawer('cart-drawer')" class="relative p-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-medium shadow-md shadow-orange-500/20 transition flex items-center gap-2">
+          <i data-lucide="shopping-bag" class="w-4 h-4"></i>
+          <span class="text-xs font-bold hidden sm:inline">Cart</span>
+          <span id="cart-badge" class="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[10px] font-extrabold rounded-full w-5 h-5 flex items-center justify-center border-2 border-white dark:border-slate-950">0</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT AREA -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- 1. LIVE VEHICLE GPS TRACKER & ROUTE PROGRESS -->
+    <section class="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden border border-indigo-900/50">
+      <div class="absolute -top-24 -right-24 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl"></div>
+      <div class="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl"></div>
+
+      <!-- Vehicle Header & Dropdown -->
+      <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-indigo-800/40 pb-5">
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+              LIVE GPS ACTIVE
+            </span>
+            <span id="vehicle-type-badge" class="text-xs font-semibold px-2 py-0.5 rounded-md bg-indigo-800/60 text-indigo-200">Express Train</span>
+          </div>
+          <h1 id="vehicle-title" class="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+            12728 - Godavari Superfast Express
+          </h1>
+          <p id="vehicle-sub" class="text-xs sm:text-sm text-indigo-200/80 mt-0.5">
+            PNR: <span class="font-mono text-amber-300">4820193851</span> • Coach: <strong class="text-white">S4-22 (Window Berth)</strong> • Route: Vizag ➔ Secunderabad
+          </p>
+        </div>
+
+        <div class="flex items-center gap-3 bg-indigo-900/60 backdrop-blur-md p-2 rounded-2xl border border-indigo-700/50">
+          <i data-lucide="navigation" class="w-5 h-5 text-amber-400 ml-2"></i>
+          <div class="text-left">
+            <label class="block text-[10px] text-indigo-300 uppercase font-bold tracking-wider">Select Live Route</label>
+            <select id="vehicle-selector" onchange="onVehicleChange(this.value)" class="bg-transparent text-xs font-semibold text-white focus:outline-none cursor-pointer pr-4">
+              <optgroup label="Popular Superfast Trains">
+                <option value="train-12728" selected class="bg-slate-900 text-white">12728 - Godavari Express (VSKP ➔ SC)</option>
+                <option value="train-12840" class="bg-slate-900 text-white">12840 - Howrah Mail (MAS ➔ HWH)</option>
+                <option value="train-12626" class="bg-slate-900 text-white">12626 - Kerala Express (NDLS ➔ TVC)</option>
+              </optgroup>
+              <optgroup label="Intercity Express Buses">
+                <option value="bus-apsrtc" class="bg-slate-900 text-white">APSRTC Amaravati Volvo (OGL ➔ VZA)</option>
+                <option value="bus-ksrtc" class="bg-slate-900 text-white">KSRTC FlyBus HighWay (BLR ➔ HYD)</option>
+              </optgroup>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Real-Time GPS Metrics -->
+      <div class="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-3 my-5">
+        <div class="bg-indigo-950/60 p-3 rounded-2xl border border-indigo-800/50">
+          <span class="text-[10px] uppercase tracking-wider text-indigo-300 font-semibold block">Current Speed</span>
+          <div class="flex items-baseline gap-1 mt-1">
+            <span id="live-speed" class="font-display text-2xl font-bold text-amber-400">84</span>
+            <span class="text-xs text-indigo-300">km/h</span>
+          </div>
+        </div>
+        <div class="bg-indigo-950/60 p-3 rounded-2xl border border-indigo-800/50">
+          <span class="text-[10px] uppercase tracking-wider text-indigo-300 font-semibold block">Delay Status</span>
+          <div class="flex items-center gap-1.5 mt-1">
+            <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+            <span id="delay-status" class="font-display text-base font-bold text-emerald-400">On Time</span>
+          </div>
+        </div>
+        <div class="bg-indigo-950/60 p-3 rounded-2xl border border-indigo-800/50">
+          <span class="text-[10px] uppercase tracking-wider text-indigo-300 font-semibold block">Next Station Arrival</span>
+          <div class="flex items-baseline gap-1 mt-1">
+            <span id="next-station-countdown" class="font-display text-2xl font-bold text-white">18</span>
+            <span class="text-xs text-indigo-300">mins away</span>
+          </div>
+        </div>
+        <div class="bg-indigo-950/60 p-3 rounded-2xl border border-indigo-800/50">
+          <span class="text-[10px] uppercase tracking-wider text-indigo-300 font-semibold block">Live GPS Coordinates</span>
+          <div class="text-xs font-mono text-indigo-200 mt-1 truncate" id="live-gps-coords">
+            15.5057° N, 80.0499° E
+          </div>
+        </div>
+      </div>
+
+      <!-- Animated Route Timeline -->
+      <div class="relative z-10 mt-6 pt-4 border-t border-indigo-800/40">
+        <div class="flex items-center justify-between mb-3 text-xs">
+          <span class="text-indigo-300 font-medium">Live Journey Progress</span>
+          <span id="journey-percent" class="text-amber-400 font-bold">58% Completed</span>
+        </div>
+
+        <div class="relative w-full h-3 bg-indigo-950 rounded-full overflow-hidden border border-indigo-800/80">
+          <div id="journey-bar" class="h-full bg-gradient-to-r from-emerald-500 via-amber-400 to-orange-500 transition-all duration-1000" style="width: 58%;"></div>
+        </div>
+
+        <div id="station-timeline-nodes" class="grid grid-cols-4 text-center mt-3 gap-1">
+          <!-- Injected via JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. LIVE WEATHER & SAFE DELIVERY ADVISORY -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      
+      <!-- Weather Tracker Card -->
+      <div class="lg:col-span-2 bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+          <div class="flex items-center gap-3">
+            <div id="weather-icon-bg" class="w-12 h-12 rounded-2xl bg-sky-100 dark:bg-sky-950/50 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+              <i id="weather-main-icon" data-lucide="cloud-rain" class="w-7 h-7"></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 id="weather-city-name" class="font-display font-bold text-lg">Ongole (OGL Station Area)</h3>
+                <span class="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full font-semibold">Auto-GPS Sync</span>
+              </div>
+              <p id="weather-condition-text" class="text-xs text-slate-500 dark:text-slate-400">Light Showers • High Humidity • 28°C</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <div class="relative">
+              <input type="text" id="weather-search-input" placeholder="Search station..." class="w-40 sm:w-48 pl-8 pr-3 py-1.5 text-xs rounded-xl bg-slate-100 dark:bg-slate-800 border-none focus:ring-2 focus:ring-amber-500 text-slate-800 dark:text-slate-200" />
+              <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5"></i>
+            </div>
+            <button onclick="searchStationWeather()" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-semibold transition">
+              Check
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 sm:grid-cols-4 gap-3 py-4 text-center">
+          <div class="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
+            <span class="text-[10px] text-slate-400 font-medium block">Temperature</span>
+            <span id="weather-temp" class="text-lg font-bold text-slate-800 dark:text-slate-100">28°C</span>
+          </div>
+          <div class="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
+            <span class="text-[10px] text-slate-400 font-medium block">Humidity</span>
+            <span id="weather-humidity" class="text-lg font-bold text-slate-800 dark:text-slate-100">82%</span>
+          </div>
+          <div class="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
+            <span class="text-[10px] text-slate-400 font-medium block">Wind Speed</span>
+            <span id="weather-wind" class="text-lg font-bold text-slate-800 dark:text-slate-100">14 km/h</span>
+          </div>
+          <div class="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 hidden sm:block">
+            <span class="text-[10px] text-slate-400 font-medium block">UV Index</span>
+            <span id="weather-uv" class="text-lg font-bold text-emerald-600 dark:text-emerald-400">Low (2)</span>
+          </div>
+        </div>
+
+        <div class="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 p-3 rounded-2xl border border-amber-200/50 dark:border-amber-800/30 flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5 text-xs text-amber-900 dark:text-amber-200">
+            <i data-lucide="sparkles" class="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0"></i>
+            <span><strong>Weather Pairing:</strong> Rainy condition at Ongole. Hot Filter Coffee & Mirchi Bajji are top paired picks!</span>
+          </div>
+          <button onclick="filterByWeatherMatch()" class="text-xs font-bold text-amber-700 dark:text-amber-400 hover:underline whitespace-nowrap">
+            View Items →
+          </button>
+        </div>
+      </div>
+
+      <!-- Platform Partner Launchers Card -->
+      <div class="bg-gradient-to-br from-emerald-900 to-teal-950 text-white rounded-3xl p-5 shadow-sm border border-emerald-800/50 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold tracking-wider uppercase text-emerald-300">Delivery Safe Guard</span>
+            <span id="safe-status-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500 text-slate-950">SAFE TO ORDER</span>
+          </div>
+          <h4 id="delivery-window-title" class="font-display font-bold text-lg text-white">
+            15 Min Halt @ Ongole (OGL)
+          </h4>
+          <p class="text-xs text-emerald-100/80 mt-1">
+            Orders placed in the next <strong class="text-amber-300">12 mins</strong> are guaranteed for hot berth-side or window-drop delivery.
+          </p>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-emerald-800/60">
+          <p class="text-[10px] font-semibold text-emerald-300 uppercase tracking-wider mb-2">
+            Launch Official Delivery Partners
+          </p>
+          <div class="grid grid-cols-3 gap-2">
+            <a href="https://www.swiggy.com" target="_blank" class="bg-slate-900/60 hover:bg-slate-900 text-white text-[11px] font-bold py-2 px-1 rounded-xl text-center border border-emerald-700/50 flex flex-col items-center justify-center gap-0.5 transition">
+              <span class="text-orange-400">Swiggy</span>
+              <span class="text-[9px] text-slate-400 font-normal">Train Deliv.</span>
+            </a>
+            <a href="https://www.zomato.com" target="_blank" class="bg-slate-900/60 hover:bg-slate-900 text-white text-[11px] font-bold py-2 px-1 rounded-xl text-center border border-emerald-700/50 flex flex-col items-center justify-center gap-0.5 transition">
+              <span class="text-red-400">Zomato</span>
+              <span class="text-[9px] text-slate-400 font-normal">IRCTC Rest.</span>
+            </a>
+            <a href="https://www.blinkit.com" target="_blank" class="bg-slate-900/60 hover:bg-slate-900 text-white text-[11px] font-bold py-2 px-1 rounded-xl text-center border border-emerald-700/50 flex flex-col items-center justify-center gap-0.5 transition">
+              <span class="text-yellow-300">Blinkit</span>
+              <span class="text-[9px] text-slate-400 font-normal">Instant Snacks</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. UPCOMING STATIONS / DELIVERY PICKER -->
+    <section class="space-y-3">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="font-display font-bold text-xl">Upcoming Delivery Stations & Rest Stops</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Select a station to explore local regional specialties</p>
+        </div>
+      </div>
+
+      <div id="station-cards-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Injected via JS -->
+      </div>
+    </section>
+
+    <!-- 4. FOOD CATEGORIES & MENU -->
+    <section class="space-y-4 pt-2">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 class="font-display font-bold text-xl">Station Delicacies & Fresh Meals</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Fresh food delivered directly to your train coach or bus seat</p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <div class="relative">
+            <input type="text" id="menu-search-input" onkeyup="filterMenu()" placeholder="Search food items..." class="w-full sm:w-64 pl-9 pr-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-amber-500" />
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+          </div>
+        </div>
+      </div>
+
+      <div id="category-pills" class="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
+        <!-- Injected via JS -->
+      </div>
+
+      <div id="food-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <!-- Injected via JS -->
+      </div>
+    </section>
+  </main>
+
+  <!-- FLOATING META AI TRIGGER BUTTON -->
+  <div class="fixed bottom-6 right-6 z-40">
+    <button onclick="toggleDrawer('meta-ai-drawer')" class="relative group p-0.5 rounded-full animate-gradient-x bg-gradient-to-r from-meta-start via-meta-mid to-meta-end shadow-lg animate-pulse-glow transition transform hover:scale-105">
+      <div class="bg-slate-950 text-white px-4 py-3 rounded-full flex items-center gap-2.5">
+        <div class="w-6 h-6 rounded-full bg-gradient-to-tr from-meta-start to-meta-end flex items-center justify-center">
+          <i data-lucide="bot" class="w-3.5 h-3.5 text-white"></i>
+        </div>
+        <span class="font-display font-bold text-xs tracking-wider bg-gradient-to-r from-blue-300 via-purple-300 to-pink-300 bg-clip-text text-transparent">
+          META AI ASSISTANT
+        </span>
+      </div>
+    </button>
+  </div>
+
+  <!-- CART DRAWER WITH CHECKOUT SUMMARY -->
+  <div id="cart-drawer" class="fixed inset-y-0 right-0 w-full sm:w-96 bg-white dark:bg-slate-900 shadow-2xl z-50 transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col border-l border-slate-200 dark:border-slate-800">
+    <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <i data-lucide="shopping-bag" class="w-5 h-5 text-orange-500"></i>
+        <h3 class="font-display font-bold text-base">Your Order Cart</h3>
+      </div>
+      <button onclick="toggleDrawer('cart-drawer')" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <div id="cart-items-container" class="flex-1 overflow-y-auto p-4 space-y-3">
+      <!-- Injected via JS -->
+    </div>
+
+    <div class="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 space-y-3 text-xs">
+      
+      <!-- Promo Code Section -->
+      <div class="flex gap-2">
+        <input type="text" id="promo-input" placeholder="Promo code (e.g. META20)" class="flex-1 p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 uppercase font-bold text-xs" />
+        <button onclick="applyPromoCode()" class="px-3 py-2 bg-slate-900 dark:bg-slate-700 text-white font-bold rounded-xl hover:bg-slate-800 transition">
+          Apply
+        </button>
+      </div>
+
+      <!-- Coach & Seat Config -->
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Coach / Bus No</label>
+          <input type="text" id="cart-coach-input" value="S4" class="w-full p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-semibold" />
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Seat / Berth No</label>
+          <input type="text" id="cart-seat-input" value="22 (Window)" class="w-full p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-semibold" />
+        </div>
+      </div>
+
+      <!-- Bill Breakdown -->
+      <div class="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-1 text-slate-600 dark:text-slate-400">
+        <div class="flex justify-between">
+          <span>Items Subtotal</span>
+          <span id="cart-subtotal" class="font-semibold text-slate-900 dark:text-slate-100">₹0</span>
+        </div>
+        <div id="promo-discount-row" class="flex justify-between text-emerald-600 dark:text-emerald-400 hidden">
+          <span>Promo Discount</span>
+          <span id="cart-discount" class="font-semibold">-₹0</span>
+        </div>
+        <div class="flex justify-between">
+          <span>IRCTC / Service Tax (5%)</span>
+          <span id="cart-taxes" class="font-semibold text-slate-900 dark:text-slate-100">₹0</span>
+        </div>
+        <div class="flex justify-between">
+          <span>Eco Packaging & Delivery</span>
+          <span class="font-semibold text-emerald-600 dark:text-emerald-400">FREE</span>
+        </div>
+        <div class="flex justify-between text-base font-bold text-slate-900 dark:text-slate-100 pt-1 border-t border-slate-200 dark:border-slate-800">
+          <span>Total Amount</span>
+          <span id="cart-total" class="text-orange-600 dark:text-orange-400">₹0</span>
+        </div>
+      </div>
+
+      <button onclick="openPaymentGatewayModal()" class="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold rounded-2xl shadow-lg shadow-orange-500/20 transition flex items-center justify-center gap-2">
+        <i data-lucide="shield-check" class="w-4 h-4"></i>
+        <span>Proceed to Select Payment</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- MULTI-OPTION PAYMENT GATEWAY MODAL -->
+  <div id="payment-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full p-5 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[90vh] flex flex-col">
+      
+      <!-- Modal Header -->
+      <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-xl bg-orange-500/10 text-orange-500 flex items-center justify-center font-bold">
+            <i data-lucide="credit-card" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="font-display font-bold text-base">Select Payment Method</h3>
+            <p class="text-[11px] text-slate-400">Total Payable: <strong id="pay-modal-amount" class="text-orange-500">₹0</strong></p>
+          </div>
+        </div>
+        <button onclick="toggleModal('payment-modal')" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Payment Tabs -->
+      <div class="grid grid-cols-5 gap-1 my-4 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl text-[11px] font-bold text-center">
+        <button onclick="switchPaymentTab('phonepe')" id="paytab-phonepe" class="py-2 rounded-xl transition bg-white dark:bg-slate-900 text-purple-600 shadow-sm">PhonePe</button>
+        <button onclick="switchPaymentTab('qr')" id="paytab-qr" class="py-2 rounded-xl transition text-slate-600 dark:text-slate-400">Scan QR</button>
+        <button onclick="switchPaymentTab('card')" id="paytab-card" class="py-2 rounded-xl transition text-slate-600 dark:text-slate-400">Card</button>
+        <button onclick="switchPaymentTab('cod')" id="paytab-cod" class="py-2 rounded-xl transition text-slate-600 dark:text-slate-400">COD</button>
+        <button onclick="switchPaymentTab('banking')" id="paytab-banking" class="py-2 rounded-xl transition text-slate-600 dark:text-slate-400">Banking</button>
+      </div>
+
+      <!-- TAB 1: PHONEPE / UPI -->
+      <div id="paysec-phonepe" class="space-y-4 py-2">
+        <div class="bg-purple-50 dark:bg-purple-950/40 p-4 rounded-2xl border border-purple-200 dark:border-purple-900/50 flex items-center justify-between">
+          <div>
+            <span class="text-xs font-bold text-purple-800 dark:text-purple-300 block">PhonePe Direct App Trigger</span>
+            <p class="text-[10px] text-purple-600 dark:text-purple-400 mt-0.5">Instant one-click payment via installed PhonePe app</p>
+          </div>
+          <a href="phonepe://pay" onclick="simulateExternalAppTrigger('PhonePe')" class="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold flex items-center gap-1">
+            <span>Open PhonePe</span>
+            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+          </a>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Or Enter Any UPI ID (VPA)</label>
+          <div class="flex gap-2">
+            <input type="text" id="upi-vpa-input" placeholder="username@ybl / username@upi" class="flex-1 p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold" />
+            <button onclick="processPayment('PhonePe UPI')" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl transition">
+              Verify & Pay
+            </button>
+          </div>
+        </div>
+
+        <div class="pt-2">
+          <span class="text-[10px] uppercase tracking-wider font-bold text-slate-400 block mb-2">Supported UPI Apps</span>
+          <div class="flex items-center gap-3">
+            <span class="px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold text-purple-600 border border-purple-300/30">PhonePe</span>
+            <span class="px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold text-blue-500 border border-blue-300/30">Google Pay</span>
+            <span class="px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold text-sky-500 border border-sky-300/30">Paytm</span>
+            <span class="px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold text-amber-600 border border-amber-300/30">BHIM</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: DYNAMIC QR CODE SCAN -->
+      <div id="paysec-qr" class="space-y-3 py-2 hidden text-center">
+        <p class="text-xs text-slate-500">Scan this live dynamic QR code using any UPI app</p>
+        
+        <div class="flex justify-center my-2">
+          <div id="qrcode-box" class="p-3 bg-white rounded-2xl border-2 border-dashed border-amber-500 shadow-md inline-block"></div>
+        </div>
+
+        <div class="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center justify-center gap-1">
+          <i data-lucide="clock" class="w-4 h-4"></i>
+          <span>QR Expires in: <strong id="qr-timer" class="font-mono">04:59</strong></span>
+        </div>
+
+        <button onclick="processPayment('Dynamic QR Code')" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 mt-2">
+          <i data-lucide="check-circle" class="w-4 h-4"></i>
+          <span>Simulate QR Scan Success</span>
+        </button>
+      </div>
+
+      <!-- TAB 3: CREDIT / DEBIT CARD -->
+      <div id="paysec-card" class="space-y-3 py-2 hidden">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Card Number</label>
+          <div class="relative">
+            <input type="text" id="card-number" oninput="detectCardType(this.value)" placeholder="4532 •••• •••• 8921" maxlength="19" class="w-full p-2.5 pl-3 pr-16 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold" />
+            <span id="card-brand-badge" class="absolute right-3 top-2.5 text-[10px] font-bold px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700">Card</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Expiry Date</label>
+            <input type="text" placeholder="MM/YY" maxlength="5" class="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">CVV</label>
+            <input type="password" maxlength="4" placeholder="•••" class="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold" />
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 pt-1">
+          <input type="checkbox" id="save-card-chk" checked class="rounded text-amber-500" />
+          <label for="save-card-chk" class="text-xs text-slate-500">Save card securely for quick train meal orders</label>
+        </div>
+
+        <button onclick="processPayment('Credit/Debit Card')" class="w-full py-3 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 text-white font-bold rounded-2xl text-xs transition flex items-center justify-center gap-1.5 mt-2">
+          <i data-lucide="lock" class="w-4 h-4 text-emerald-400"></i>
+          <span>Pay Secured Card Charge</span>
+        </button>
+      </div>
+
+      <!-- TAB 4: CASH ON DELIVERY (COD) -->
+      <div id="paysec-cod" class="space-y-3 py-2 hidden">
+        <div class="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/40 space-y-2">
+          <div class="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold text-xs">
+            <i data-lucide="banknote" class="w-4 h-4"></i>
+            <span>Pay Cash at Your Train Berth / Bus Seat</span>
+          </div>
+          <p class="text-[11px] text-amber-900 dark:text-amber-200">
+            Hand over exact cash amount to the delivery runner at your assigned seat when the food arrives.
+          </p>
+        </div>
+
+        <div class="bg-slate-100 dark:bg-slate-800 p-3 rounded-2xl text-center space-y-1">
+          <span class="text-[10px] text-slate-400 uppercase font-bold">Your Generated Seat OTP Pin</span>
+          <div id="generated-otp-display" class="font-mono text-2xl font-extrabold text-amber-500 tracking-widest">
+            4829
+          </div>
+          <p class="text-[10px] text-slate-500">Show this PIN code to the runner to unlock your food pack.</p>
+        </div>
+
+        <button onclick="processPayment('Cash on Delivery')" class="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-2xl text-xs transition shadow-md shadow-amber-500/20">
+          Confirm COD Order
+        </button>
+      </div>
+
+      <!-- TAB 5: NET BANKING & WALLETS -->
+      <div id="paysec-banking" class="space-y-3 py-2 hidden">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Select Bank</label>
+          <select id="bank-select" class="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold">
+            <option value="SBI">State Bank of India (SBI)</option>
+            <option value="HDFC">HDFC Bank</option>
+            <option value="ICICI">ICICI Bank</option>
+            <option value="AXIS">Axis Bank</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Or Mobile Wallet</label>
+          <select id="wallet-select" class="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold">
+            <option value="Paytm Wallet">Paytm Wallet</option>
+            <option value="Amazon Pay">Amazon Pay Balance</option>
+            <option value="Mobikwik">Mobikwik Zip</option>
+          </select>
+        </div>
+
+        <button onclick="processPayment('Net Banking / Wallet')" class="w-full py-3 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 text-white font-bold rounded-2xl text-xs transition mt-2">
+          Proceed to Bank Portal
+        </button>
+      </div>
+
+      <!-- SSL Security Footer -->
+      <div class="mt-auto pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px] text-slate-400">
+        <span class="flex items-center gap-1">
+          <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-500"></i>
+          256-Bit SSL Encrypted Payment Gateway
+        </span>
+        <span>IRCTC / Highway Approved</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ORDER PROCESSING OVERLAY & LIVE STATUS -->
+  <div id="order-status-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 text-center space-y-4 shadow-2xl border border-slate-200 dark:border-slate-800">
+      
+      <!-- Processing Spinner State -->
+      <div id="status-spinner-state" class="space-y-4 py-4">
+        <div class="w-16 h-16 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+        <h3 class="font-display font-bold text-lg">Contacting Station Restaurant...</h3>
+        <p class="text-xs text-slate-400">Securing payment and assigning berth delivery runner at <strong class="text-amber-500">Ongole (OGL)</strong></p>
+      </div>
+
+      <!-- Success State -->
+      <div id="status-success-state" class="space-y-4 hidden">
+        <div class="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/80 text-emerald-500 rounded-full flex items-center justify-center mx-auto text-2xl">
+          <i data-lucide="check" class="w-8 h-8"></i>
+        </div>
+        <h3 class="font-display font-bold text-xl text-emerald-600 dark:text-emerald-400">Order Confirmed!</h3>
+        
+        <div class="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl text-xs text-left space-y-2 border border-slate-200/60 dark:border-slate-700">
+          <div class="flex justify-between">
+            <span class="text-slate-400">Order ID:</span>
+            <span id="succ-order-id" class="font-mono font-bold text-slate-800 dark:text-slate-200">#TB-92014</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-400">Payment Mode:</span>
+            <span id="succ-pay-mode" class="font-bold text-purple-600 dark:text-purple-400">PhonePe UPI</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-400">Seat Delivery OTP:</span>
+            <span id="succ-otp" class="font-mono font-extrabold text-amber-500">4829</span>
+          </div>
+          <div class="flex justify-between border-t border-slate-200 dark:border-slate-700 pt-2">
+            <span class="text-slate-400">Status:</span>
+            <span class="font-bold text-emerald-500 flex items-center gap-1">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Preparing at Station Kitchen
+            </span>
+          </div>
+        </div>
+
+        <div class="flex gap-2">
+          <button onclick="showDigitalReceipt()" class="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-xs font-bold rounded-xl transition">
+            View Receipt
+          </button>
+          <button onclick="closeOrderStatusModal()" class="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl transition">
+            Track Delivery
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIGITAL RECEIPT MODAL -->
+  <div id="receipt-modal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
+        <h3 class="font-display font-bold text-lg">Official Order Receipt</h3>
+        <button onclick="toggleModal('receipt-modal')" class="p-1 text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div id="receipt-content-area" class="space-y-3 text-xs bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl font-mono">
+        <!-- Injected via JS -->
+      </div>
+
+      <button onclick="window.print()" class="w-full py-2.5 bg-slate-900 dark:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5">
+        <i data-lucide="printer" class="w-4 h-4"></i>
+        <span>Print Receipt</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ORDER HISTORY MODAL -->
+  <div id="history-modal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 max-h-[80vh] flex flex-col">
+      <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <i data-lucide="receipt" class="w-5 h-5 text-amber-500"></i>
+          <h3 class="font-display font-bold text-lg">My Travel Food Orders</h3>
+        </div>
+        <button onclick="toggleModal('history-modal')" class="p-1 text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div id="history-items-container" class="flex-1 overflow-y-auto space-y-3">
+        <!-- Injected via JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- META AI ASSISTANT DRAWER -->
+  <div id="meta-ai-drawer" class="fixed inset-y-0 right-0 w-full sm:w-96 bg-white dark:bg-slate-900 shadow-2xl z-50 transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col border-l border-slate-200 dark:border-slate-800">
+    <div class="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-950 text-white flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-meta-start via-meta-mid to-meta-end flex items-center justify-center">
+          <i data-lucide="sparkles" class="w-4 h-4 text-white"></i>
+        </div>
+        <div>
+          <h3 class="font-display font-bold text-sm bg-gradient-to-r from-blue-400 via-purple-300 to-pink-400 bg-clip-text text-transparent">Meta AI Travel Companion</h3>
+          <p class="text-[10px] text-slate-400">Grounded in Live GPS & Payment APIs</p>
+        </div>
+      </div>
+      <button onclick="toggleDrawer('meta-ai-drawer')" class="p-1 rounded-lg text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <div class="p-3 bg-slate-50 dark:bg-slate-950/60 border-b border-slate-200 dark:border-slate-800 space-y-1.5">
+      <p class="text-[10px] uppercase font-bold text-slate-400">Quick AI Prompts</p>
+      <div class="flex flex-wrap gap-1.5">
+        <button onclick="askMetaAI('Is PhonePe payment safe for train berth delivery?')" class="text-[11px] px-2.5 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-purple-500 transition">
+          💳 Payment Safety?
+        </button>
+        <button onclick="askMetaAI('What hot snacks are best for rainy weather at Ongole?')" class="text-[11px] px-2.5 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-purple-500 transition">
+          ☕ Rainy weather food?
+        </button>
+        <button onclick="askMetaAI('Suggest healthy food options for elderly passengers')" class="text-[11px] px-2.5 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-purple-500 transition">
+          🥗 Healthy / Low Salt
+        </button>
+      </div>
+    </div>
+
+    <div id="ai-chat-history" class="flex-1 overflow-y-auto p-4 space-y-3 text-xs">
+      <div class="bg-slate-100 dark:bg-slate-800/80 p-3 rounded-2xl rounded-tl-none border border-slate-200/60 dark:border-slate-700/50">
+        Hello! I'm Meta AI. I can help you select local dishes, track payment options like PhonePe, or split bills with family!
+      </div>
+    </div>
+
+    <div class="p-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-2">
+      <input type="text" id="ai-input" onkeydown="if(event.key==='Enter') sendUserAIMessage()" placeholder="Ask Meta AI..." class="flex-1 px-3 py-2 text-xs rounded-xl bg-slate-100 dark:bg-slate-800 border-none focus:ring-2 focus:ring-purple-500 text-slate-800 dark:text-slate-200" />
+      <button onclick="sendUserAIMessage()" class="p-2.5 bg-gradient-to-r from-meta-start to-meta-mid text-white rounded-xl hover:opacity-90 transition">
+        <i data-lucide="send" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- GROUP ORDER ROOM MODAL -->
+  <div id="group-modal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <i data-lucide="users" class="w-5 h-5 text-emerald-500"></i>
+          <h3 class="font-display font-bold text-lg">Family & Group Order Room</h3>
+        </div>
+        <button onclick="toggleModal('group-modal')" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="bg-slate-100 dark:bg-slate-800 p-4 rounded-2xl flex items-center justify-between border border-dashed border-slate-300 dark:border-slate-700">
+        <div>
+          <span class="text-[10px] text-slate-400 font-bold uppercase block">Group Room Code</span>
+          <span class="font-mono text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">TRV-8942</span>
+        </div>
+        <button onclick="copyRoomCode()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+          <i data-lucide="copy" class="w-4 h-4"></i>
+          <span>Copy Code</span>
+        </button>
+      </div>
+
+      <div class="space-y-3 pt-2">
+        <h4 class="font-display font-bold text-sm">Split Bill Calculator</h4>
+        <div class="grid grid-cols-2 gap-3 text-xs">
+          <div>
+            <label class="block text-slate-500 mb-1">Number of Passengers</label>
+            <input type="number" id="split-people" value="4" min="1" onchange="calculateSplit()" class="w-full p-2 rounded-xl bg-slate-100 dark:bg-slate-800 font-bold" />
+          </div>
+          <div>
+            <label class="block text-slate-500 mb-1">Split Strategy</label>
+            <select id="split-mode" onchange="calculateSplit()" class="w-full p-2 rounded-xl bg-slate-100 dark:bg-slate-800 font-bold">
+              <option value="equal">Equal Split</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="bg-emerald-50 dark:bg-emerald-950/40 p-3 rounded-2xl border border-emerald-200 dark:border-emerald-800/40 text-center">
+          <span class="text-xs text-emerald-800 dark:text-emerald-300">Each Passenger Pays Approx:</span>
+          <div id="split-result" class="font-display text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">₹0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast" class="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white px-4 py-2.5 rounded-2xl shadow-2xl z-50 flex items-center gap-2 text-xs font-semibold opacity-0 transition-opacity duration-300 pointer-events-none border border-slate-700">
+    <i data-lucide="info" class="w-4 h-4 text-amber-400"></i>
+    <span id="toast-message">Notification</span>
+  </div>
+
+  <!-- APPLICATION LOGIC -->
+  <script>
+    // --- STATE MANAGEMENT ---
+    let currentMode = 'train';
+    let currentVehicleKey = 'train-12728';
+    let cart = [];
+    let currentCategoryFilter = 'All';
+    let appliedDiscount = 0;
+    let selectedPaymentMethod = 'PhonePe UPI';
+    let qrTimerInterval = null;
+    let lastCompletedOrder = null;
+
+    let orderHistory = [
+      {
+        id: '#TB-88492',
+        date: 'Yesterday, 8:30 PM',
+        station: 'Rajahmundry (RJY)',
+        items: '2x Ghee Podi Idli, 1x Filter Coffee',
+        total: 290,
+        payMode: 'PhonePe UPI',
+        status: 'Delivered @ Seat S4-22'
+      }
+    ];
+
+    // Mock Vehicles Database
+    const VEHICLES_DATA = {
+      'train-12728': {
+        title: '12728 - Godavari Superfast Express',
+        sub: 'PNR: 4820193851 • Coach: S4-22 • Vizag ➔ Secunderabad',
+        type: 'Express Train',
+        speed: 84,
+        delay: 'On Time',
+        countdown: 18,
+        gps: '15.5057° N, 80.0499° E',
+        progressPercent: 58,
+        stations: [
+          { name: 'Vizag (VSKP)', code: 'VSKP', status: 'passed' },
+          { name: 'Rajahmundry', code: 'RJY', status: 'passed' },
+          { name: 'Ongole (OGL)', code: 'OGL', status: 'current', halt: '15 mins', safe: 'GREEN' },
+          { name: 'Vijayawada', code: 'BZA', status: 'upcoming', halt: '20 mins', safe: 'GREEN' },
+        ]
+      },
+      'train-12840': {
+        title: '12840 - Howrah Superfast Mail',
+        sub: 'PNR: 8291039482 • Coach: B2-14 • Chennai ➔ Howrah',
+        type: 'Superfast Mail',
+        speed: 92,
+        delay: '5 mins late',
+        countdown: 24,
+        gps: '14.4426° N, 79.9865° E',
+        progressPercent: 35,
+        stations: [
+          { name: 'Chennai Central', code: 'MAS', status: 'passed' },
+          { name: 'Nellore (NLR)', code: 'NLR', status: 'current', halt: '10 mins', safe: 'GREEN' },
+          { name: 'Ongole (OGL)', code: 'OGL', status: 'upcoming', halt: '15 mins', safe: 'GREEN' },
+          { name: 'Vijayawada', code: 'BZA', status: 'upcoming', halt: '15 mins', safe: 'GREEN' },
+        ]
+      },
+      'train-12626': {
+        title: '12626 - Kerala Superfast Express',
+        sub: 'PNR: 2948103920 • Coach: A1-32 • New Delhi ➔ Trivandrum',
+        type: 'Express Train',
+        speed: 78,
+        delay: 'On Time',
+        countdown: 12,
+        gps: '16.5062° N, 80.6480° E',
+        progressPercent: 72,
+        stations: [
+          { name: 'Nagpur', code: 'NGP', status: 'passed' },
+          { name: 'Vijayawada (BZA)', code: 'BZA', status: 'current', halt: '20 mins', safe: 'GREEN' },
+          { name: 'Chennai Central', code: 'MAS', status: 'upcoming', halt: '15 mins', safe: 'GREEN' },
+          { name: 'Trivandrum', code: 'TVC', status: 'upcoming', halt: '10 mins', safe: 'GREEN' },
+        ]
+      },
+      'bus-apsrtc': {
+        title: 'APSRTC Amaravati Volvo Night Express',
+        sub: 'Reg No: AP-27-Z-4920 • Seat: 12W • Ongole ➔ Vijayawada',
+        type: 'Volvo AC Bus',
+        speed: 72,
+        delay: 'On Time',
+        countdown: 10,
+        gps: '15.5120° N, 80.0520° E',
+        progressPercent: 45,
+        stations: [
+          { name: 'Ongole RTC Stand', code: 'OGL-BUS', status: 'passed' },
+          { name: 'Medarametla Dhaba', code: 'REST-1', status: 'current', halt: '25 mins', safe: 'GREEN' },
+          { name: 'Chilakaluripet Plaza', code: 'REST-2', status: 'upcoming', halt: '10 mins', safe: 'AMBER' },
+          { name: 'Vijayawada Bus Stand', code: 'VZA-BUS', status: 'upcoming', halt: 'End Stop', safe: 'GREEN' },
+        ]
+      },
+      'bus-ksrtc': {
+        title: 'KSRTC FlyBus HighWay Sleeper',
+        sub: 'Reg No: KA-01-F-8811 • Seat: 08L • Bengaluru ➔ Hyderabad',
+        type: 'Scania Bus',
+        speed: 80,
+        delay: '10 mins late',
+        countdown: 15,
+        gps: '14.6819° N, 77.6006° E',
+        progressPercent: 60,
+        stations: [
+          { name: 'Anantapur Stop', code: 'ATP-DHABA', status: 'passed' },
+          { name: 'Kurnool Rest Hub', code: 'KRNL-HUB', status: 'current', halt: '20 mins', safe: 'GREEN' },
+          { name: 'Jedcherla Plaza', code: 'JDL', status: 'upcoming', halt: '10 mins', safe: 'AMBER' },
+          { name: 'Hyderabad MGBS', code: 'HYD-BUS', status: 'upcoming', halt: 'End Stop', safe: 'GREEN' },
+        ]
+      }
+    };
+
+    const STATIONS_DATA = [
+      { code: 'OGL', name: 'Ongole Station', distance: '18 km away', timeAway: '18 mins', halt: '15 min Halt', specialty: 'Ongole Hot Mirchi Bajji & Ghee Dosa' },
+      { code: 'BZA', name: 'Vijayawada Junction', distance: '124 km away', timeAway: '1h 45m away', halt: '20 min Halt', specialty: 'Crispy Punugulu & Vijayawada Biryani' },
+      { code: 'NLR', name: 'Nellore Station', distance: '210 km away', timeAway: '3h 10m away', halt: '10 min Halt', specialty: 'Nellore Chepala Pulusu & Khaja' },
+      { code: 'SC', name: 'Secunderabad Junction', distance: '340 km away', timeAway: '5h 20m away', halt: '25 min Halt', specialty: 'Hyderabadi Dum Biryani & Irani Chai' }
+    ];
+
+    const FOOD_ITEMS = [
+      { id: 1, name: 'Ongole Special Mirchi Bajji (4 Pcs)', station: 'Ongole (OGL)', category: 'Station Delicacies', price: 80, veg: true, rating: 4.8, prepTime: '8 mins', image: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=500&q=80', metaTag: '⚡ Meta AI Pick: Recommended for 28°C Rain', desc: 'Freshly fried spicy chilli fritters with stuffed lemon onions.' },
+      { id: 2, name: 'Vijayawada Hot Punugulu Basket', station: 'Vijayawada (BZA)', category: 'Station Delicacies', price: 90, veg: true, rating: 4.9, prepTime: '10 mins', image: 'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?auto=format&fit=crop&w=500&q=80', metaTag: '🔥 Bestseller @ Platform 1', desc: 'Crispy rice batter dumplings served with tangy ginger chutney.' },
+      { id: 3, name: 'Hyderabadi Chicken Dum Biryani Thali', station: 'Secunderabad (SC)', category: 'North & South Meals', price: 240, veg: false, rating: 4.9, prepTime: '12 mins', image: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=500&q=80', metaTag: '👑 Royal Train Feast', desc: 'Authentic basmati biryani with tender chicken and Mirchi Salan.' },
+      { id: 4, name: 'Filter Coffee & Crispy Medu Vada (2 Pcs)', station: 'Ongole (OGL)', category: 'Snacks & Drinks', price: 70, veg: true, rating: 4.7, prepTime: '5 mins', image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=500&q=80', metaTag: '☕ Warm Comfort Meal', desc: 'Piping hot filter coffee with crunchy urad dal vadas.' },
+      { id: 5, name: 'Jain Special Pure Veg Thali', station: 'Vijayawada (BZA)', category: 'Jain & Pure Veg', price: 180, veg: true, rating: 4.6, prepTime: '12 mins', image: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=500&q=80', metaTag: '🌱 No Onion, No Garlic', desc: 'Paneer Butter Masala, Dal Fry, Jeera Rice, and 3 Butter Rotis.' },
+      { id: 6, name: 'Ghee Podi Idli (4 Pcs) Hot Flask', station: 'Nellore (NLR)', category: 'Snacks & Drinks', price: 110, veg: true, rating: 4.8, prepTime: '6 mins', image: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=500&q=80', metaTag: '⚡ Quick 2-Min Berth Drop', desc: 'Soft steaming idlis tossed in pure desi ghee and gunpowder.' }
+    ];
+
+    const CATEGORIES = ['All', 'Station Delicacies', 'North & South Meals', 'Snacks & Drinks', 'Jain & Pure Veg'];
+
+    // --- DOM INIT ---
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      renderTimelineNodes();
+      renderStationCards();
+      renderCategoryPills();
+      renderFoodGrid();
+      renderOrderHistory();
+      startLiveGPSSimulation();
+    });
+
+    // --- UI SWITCHERS ---
+    function switchMode(mode) {
+      currentMode = mode;
+      const trainBtn = document.getElementById('btn-mode-train');
+      const busBtn = document.getElementById('btn-mode-bus');
+
+      if (mode === 'train') {
+        trainBtn.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-white dark:bg-slate-900 shadow-sm text-amber-600 dark:text-amber-400";
+        busBtn.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900";
+        onVehicleChange('train-12728');
+        showToast('Switched to Train Delivery Mode');
+      } else {
+        busBtn.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-white dark:bg-slate-900 shadow-sm text-amber-600 dark:text-amber-400";
+        trainBtn.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900";
+        onVehicleChange('bus-apsrtc');
+        showToast('Switched to Highway Bus Mode');
+      }
+    }
+
+    function onVehicleChange(key) {
+      currentVehicleKey = key;
+      const data = VEHICLES_DATA[key];
+      if (!data) return;
+
+      document.getElementById('vehicle-title').innerText = data.title;
+      document.getElementById('vehicle-sub').innerHTML = data.sub;
+      document.getElementById('vehicle-type-badge').innerText = data.type;
+      document.getElementById('live-speed').innerText = data.speed;
+      document.getElementById('delay-status').innerText = data.delay;
+      document.getElementById('next-station-countdown').innerText = data.countdown;
+      document.getElementById('live-gps-coords').innerText = data.gps;
+      document.getElementById('journey-bar').style.width = data.progressPercent + '%';
+      document.getElementById('journey-percent').innerText = data.progressPercent + '% Completed';
+
+      renderTimelineNodes(data.stations);
+    }
+
+    function renderTimelineNodes(stations) {
+      const data = stations || VEHICLES_DATA[currentVehicleKey].stations;
+      const container = document.getElementById('station-timeline-nodes');
+      container.innerHTML = data.map(s => `
+        <div class="flex flex-col items-center">
+          <div class="w-3 h-3 rounded-full ${s.status === 'passed' ? 'bg-emerald-400' : s.status === 'current' ? 'bg-amber-400 ring-4 ring-amber-400/30 animate-pulse' : 'bg-slate-600'} mb-1"></div>
+          <span class="text-[11px] font-bold text-white truncate max-w-[80px]">${s.code}</span>
+          <span class="text-[9px] text-indigo-300 font-medium">${s.halt || 'Stop'}</span>
+        </div>
+      `).join('');
+    }
+
+    function renderStationCards() {
+      const container = document.getElementById('station-cards-container');
+      container.innerHTML = STATIONS_DATA.map(st => `
+        <div class="bg-white dark:bg-slate-900 rounded-3xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-amber-500/50 transition">
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-mono text-xs font-bold text-slate-400">${st.code}</span>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-300/30">${st.halt}</span>
+          </div>
+          <h3 class="font-display font-bold text-base text-slate-800 dark:text-slate-100">${st.name}</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${st.distance} • ${st.timeAway}</p>
+          <div class="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+            <span class="text-[10px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider block">Station Specialty</span>
+            <p class="text-xs font-medium text-slate-700 dark:text-slate-300 mt-0.5 truncate">${st.specialty}</p>
+          </div>
+          <button onclick="filterByStation('${st.code}')" class="w-full mt-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-amber-500 hover:text-white text-xs font-bold transition">
+            Explore ${st.code} Menu
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function renderCategoryPills() {
+      const container = document.getElementById('category-pills');
+      container.innerHTML = CATEGORIES.map(cat => `
+        <button onclick="setCategoryFilter('${cat}')" class="px-4 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition ${currentCategoryFilter === cat ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'}">
+          ${cat}
+        </button>
+      `).join('');
+    }
+
+    function renderFoodGrid(itemsToRender = FOOD_ITEMS) {
+      const container = document.getElementById('food-grid');
+      container.innerHTML = itemsToRender.map(item => `
+        <div class="bg-white dark:bg-slate-900 rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between hover:shadow-md transition">
+          <div>
+            <div class="relative h-44 w-full overflow-hidden bg-slate-100">
+              <img src="${item.image}" alt="${item.name}" class="w-full h-full object-cover transition transform hover:scale-105 duration-300" />
+              <span class="absolute top-3 left-3 px-2.5 py-1 rounded-full text-[10px] font-bold text-white glass-effect bg-slate-950/70">
+                ${item.station}
+              </span>
+              <span class="absolute top-3 right-3 px-2 py-0.5 rounded-md text-[10px] font-extrabold ${item.veg ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'}">
+                ${item.veg ? 'PURE VEG' : 'NON-VEG'}
+              </span>
+            </div>
+            <div class="p-4 space-y-2">
+              <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                <span class="flex items-center gap-1 font-semibold text-amber-500">
+                  <i data-lucide="star" class="w-3.5 h-3.5 fill-amber-500"></i> ${item.rating}
+                </span>
+                <span>Prep: ${item.prepTime}</span>
+              </div>
+              <h3 class="font-display font-bold text-base text-slate-900 dark:text-slate-100 leading-snug">${item.name}</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">${item.desc}</p>
+              <div class="inline-block px-2.5 py-1 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 text-[10px] font-bold border border-purple-200 dark:border-purple-800/40">
+                ${item.metaTag}
+              </div>
+            </div>
+          </div>
+          <div class="p-4 pt-0 flex items-center justify-between border-t border-slate-100 dark:border-slate-800/80 mt-2">
+            <div>
+              <span class="text-[10px] text-slate-400 block font-medium">Price</span>
+              <span class="font-display text-lg font-bold text-slate-900 dark:text-slate-100">₹${item.price}</span>
+            </div>
+            <button onclick="addToCart(${item.id})" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-xs font-bold shadow-md shadow-amber-500/20 transition flex items-center gap-1.5">
+              <i data-lucide="plus" class="w-4 h-4"></i>
+              <span>Add to Cart</span>
+            </button>
+          </div>
+        </div>
+      `).join('');
+      lucide.createIcons();
+    }
+
+    // --- CART SYSTEM ---
+    function addToCart(itemId) {
+      const item = FOOD_ITEMS.find(f => f.id === itemId);
+      if (!item) return;
+
+      const existing = cart.find(c => c.id === itemId);
+      if (existing) {
+        existing.qty++;
+      } else {
+        cart.push({ ...item, qty: 1 });
+      }
+
+      updateCartUI();
+      showToast(`Added ${item.name} to Cart`);
+    }
+
+    function updateCartQuantity(itemId, delta) {
+      const index = cart.findIndex(c => c.id === itemId);
+      if (index === -1) return;
+
+      cart[index].qty += delta;
+      if (cart[index].qty <= 0) cart.splice(index, 1);
+      updateCartUI();
+    }
+
+    function applyPromoCode() {
+      const code = document.getElementById('promo-input').value.trim().toUpperCase();
+      if (code === 'META20') {
+        appliedDiscount = 0.20;
+        showToast('Promo META20 Applied: 20% OFF!');
+      } else if (code === 'TRAIN10') {
+        appliedDiscount = 0.10;
+        showToast('Promo TRAIN10 Applied: 10% OFF!');
+      } else {
+        showToast('Invalid Promo Code');
+        appliedDiscount = 0;
+      }
+      updateCartUI();
+    }
+
+    function updateCartUI() {
+      const count = cart.reduce((acc, c) => acc + c.qty, 0);
+      document.getElementById('cart-badge').innerText = count;
+
+      const container = document.getElementById('cart-items-container');
+      if (cart.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-12 text-slate-400">
+            <i data-lucide="shopping-bag" class="w-12 h-12 mx-auto mb-2 opacity-40"></i>
+            <p class="text-xs font-semibold">Your cart is empty</p>
+          </div>
+        `;
+      } else {
+        container.innerHTML = cart.map(c => `
+          <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/50">
+            <div class="flex-1 pr-2">
+              <h4 class="font-bold text-xs text-slate-800 dark:text-slate-100">${c.name}</h4>
+              <p class="text-[10px] text-slate-400">${c.station} • ₹${c.price} each</p>
+            </div>
+            <div class="flex items-center gap-2 bg-white dark:bg-slate-900 px-2 py-1 rounded-xl border border-slate-200 dark:border-slate-700">
+              <button onclick="updateCartQuantity(${c.id}, -1)" class="text-slate-500 hover:text-red-500 font-bold text-xs px-1">-</button>
+              <span class="text-xs font-bold">${c.qty}</span>
+              <button onclick="updateCartQuantity(${c.id}, 1)" class="text-slate-500 hover:text-emerald-500 font-bold text-xs px-1">+</button>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      const rawSubtotal = cart.reduce((acc, c) => acc + (c.price * c.qty), 0);
+      const discountVal = Math.round(rawSubtotal * appliedDiscount);
+      const subtotalAfterDiscount = rawSubtotal - discountVal;
+      const taxes = Math.round(subtotalAfterDiscount * 0.05);
+      const total = subtotalAfterDiscount + taxes;
+
+      document.getElementById('cart-subtotal').innerText = `₹${rawSubtotal}`;
+      if (appliedDiscount > 0) {
+        document.getElementById('promo-discount-row').classList.remove('hidden');
+        document.getElementById('cart-discount').innerText = `-₹${discountVal}`;
+      } else {
+        document.getElementById('promo-discount-row').classList.add('hidden');
+      }
+
+      document.getElementById('cart-taxes').innerText = `₹${taxes}`;
+      document.getElementById('cart-total').innerText = `₹${total}`;
+      document.getElementById('pay-modal-amount').innerText = `₹${total}`;
+
+      calculateSplit();
+      lucide.createIcons();
+    }
+
+    // --- PAYMENT GATEWAY MODAL LOGIC ---
+    function openPaymentGatewayModal() {
+      if (cart.length === 0) {
+        showToast('Please add items to your cart first!');
+        return;
+      }
+      toggleDrawer('cart-drawer');
+      toggleModal('payment-modal');
+      switchPaymentTab('phonepe');
+    }
+
+    function switchPaymentTab(tabKey) {
+      const tabs = ['phonepe', 'qr', 'card', 'cod', 'banking'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`paytab-${t}`);
+        const sec = document.getElementById(`paysec-${t}`);
+        if (t === tabKey) {
+          btn.className = "py-2 rounded-xl transition bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 font-bold shadow-sm";
+          sec.classList.remove('hidden');
+        } else {
+          btn.className = "py-2 rounded-xl transition text-slate-600 dark:text-slate-400 font-bold";
+          sec.classList.add('hidden');
+        }
+      });
+
+      if (tabKey === 'qr') {
+        generateDynamicQRCode();
+      }
+    }
+
+    function generateDynamicQRCode() {
+      const qrBox = document.getElementById('qrcode-box');
+      qrBox.innerHTML = '';
+      const total = document.getElementById('cart-total').innerText;
+      
+      new QRCode(qrBox, {
+        text: `upi://pay?pa=travelbites@ybl&pn=TravelBites&am=${total.replace('₹','')}&cu=INR`,
+        width: 140,
+        height: 140
+      });
+
+      // Start Countdown Timer
+      let secondsLeft = 300;
+      clearInterval(qrTimerInterval);
+      qrTimerInterval = setInterval(() => {
+        secondsLeft--;
+        const mins = Math.floor(secondsLeft / 60);
+        const secs = secondsLeft % 60;
+        document.getElementById('qr-timer').innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        if (secondsLeft <= 0) clearInterval(qrTimerInterval);
+      }, 1000);
+    }
+
+    function detectCardType(number) {
+      const badge = document.getElementById('card-brand-badge');
+      if (number.startsWith('4')) {
+        badge.innerText = 'VISA';
+        badge.className = 'absolute right-3 top-2.5 text-[10px] font-bold px-2 py-0.5 rounded bg-blue-600 text-white';
+      } else if (number.startsWith('5')) {
+        badge.innerText = 'MasterCard';
+        badge.className = 'absolute right-3 top-2.5 text-[10px] font-bold px-2 py-0.5 rounded bg-red-600 text-white';
+      } else if (number.startsWith('6')) {
+        badge.innerText = 'RuPay';
+        badge.className = 'absolute right-3 top-2.5 text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-600 text-white';
+      } else {
+        badge.innerText = 'Card';
+        badge.className = 'absolute right-3 top-2.5 text-[10px] font-bold px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700';
+      }
+    }
+
+    function simulateExternalAppTrigger(appName) {
+      showToast(`Redirecting to ${appName} app...`);
+      setTimeout(() => {
+        processPayment(`${appName} App Direct`);
+      }, 1200);
+    }
+
+    function processPayment(method) {
+      selectedPaymentMethod = method;
+      toggleModal('payment-modal');
+
+      // Open processing status modal
+      const statusModal = document.getElementById('order-status-modal');
+      const spinnerState = document.getElementById('status-spinner-state');
+      const successState = document.getElementById('status-success-state');
+
+      statusModal.classList.remove('hidden');
+      spinnerState.classList.remove('hidden');
+      successState.classList.add('hidden');
+
+      const newOrderId = '#TB-' + Math.floor(10000 + Math.random() * 90000);
+      const generatedOtp = Math.floor(1000 + Math.random() * 9000);
+
+      setTimeout(() => {
+        spinnerState.classList.add('hidden');
+        successState.classList.remove('hidden');
+
+        document.getElementById('succ-order-id').innerText = newOrderId;
+        document.getElementById('succ-pay-mode').innerText = method;
+        document.getElementById('succ-otp').innerText = generatedOtp;
+
+        const totalAmt = document.getElementById('cart-total').innerText;
+        const itemsSummary = cart.map(c => `${c.qty}x ${c.name}`).join(', ');
+
+        lastCompletedOrder = {
+          id: newOrderId,
+          date: 'Just Now',
+          station: 'Ongole (OGL)',
+          items: itemsSummary,
+          total: totalAmt,
+          payMode: method,
+          otp: generatedOtp,
+          coach: document.getElementById('cart-coach-input').value,
+          seat: document.getElementById('cart-seat-input').value
+        };
+
+        orderHistory.unshift(lastCompletedOrder);
+        renderOrderHistory();
+
+        // Clear Cart
+        cart = [];
+        appliedDiscount = 0;
+        updateCartUI();
+      }, 2000);
+    }
+
+    function closeOrderStatusModal() {
+      toggleModal('order-status-modal');
+      showToast('Live tracking delivery runner...');
+    }
+
+    function showDigitalReceipt() {
+      if (!lastCompletedOrder) return;
+      toggleModal('order-status-modal');
+
+      const receiptArea = document.getElementById('receipt-content-area');
+      receiptArea.innerHTML = `
+        <div class="text-center border-b border-dashed border-slate-300 dark:border-slate-700 pb-2 mb-2">
+          <strong class="text-sm font-bold text-slate-800 dark:text-slate-100">TravelBites Official Invoice</strong>
+          <p class="text-[10px] text-slate-500">Train & Bus Station Delivery Partner</p>
+        </div>
+        <div class="space-y-1 text-slate-700 dark:text-slate-300">
+          <div>Receipt No: <strong>${lastCompletedOrder.id}</strong></div>
+          <div>Date: <span>${lastCompletedOrder.date}</span></div>
+          <div>Train/Bus: <span>Godavari SF Express (#12728)</span></div>
+          <div>Delivery Spot: <span>Coach ${lastCompletedOrder.coach}, Seat ${lastCompletedOrder.seat}</span></div>
+          <div>Station: <span>${lastCompletedOrder.station}</span></div>
+          <div>Payment: <span class="text-purple-500 font-bold">${lastCompletedOrder.payMode}</span></div>
+          <div class="border-t border-dashed border-slate-300 dark:border-slate-700 pt-2 font-bold">
+            Items: ${lastCompletedOrder.items}
+          </div>
+          <div class="text-base font-bold text-amber-500 pt-1">
+            Total Paid: ${lastCompletedOrder.total}
+          </div>
+        </div>
+      `;
+
+      toggleModal('receipt-modal');
+    }
+
+    function renderOrderHistory() {
+      const container = document.getElementById('history-items-container');
+      if (orderHistory.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">No previous orders found</p>`;
+        return;
+      }
+
+      container.innerHTML = orderHistory.map(o => `
+        <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700 space-y-1.5 text-xs">
+          <div class="flex justify-between font-bold">
+            <span class="font-mono text-amber-500">${o.id}</span>
+            <span class="text-[10px] px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-300">${o.payMode}</span>
+          </div>
+          <div class="text-slate-700 dark:text-slate-200 font-semibold">${o.items}</div>
+          <div class="flex justify-between text-[11px] text-slate-400 pt-1">
+            <span>${o.station} • ${o.date}</span>
+            <span class="font-bold text-slate-900 dark:text-slate-100">${typeof o.total === 'number' ? '₹'+o.total : o.total}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // --- META AI SIMULATION ---
+    function askMetaAI(promptText) {
+      document.getElementById('ai-input').value = promptText;
+      sendUserAIMessage();
+    }
+
+    function sendUserAIMessage() {
+      const input = document.getElementById('ai-input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const history = document.getElementById('ai-chat-history');
+      history.innerHTML += `
+        <div class="bg-purple-600 text-white p-3 rounded-2xl rounded-tr-none ml-6 text-right">
+          ${text}
+        </div>
+      `;
+      input.value = '';
+      history.scrollTop = history.scrollHeight;
+
+      setTimeout(() => {
+        let reply = "I've checked your live journey details. All payments on TravelBites are 256-bit SSL encrypted and directly linked to station restaurants!";
+        if (text.toLowerCase().includes('safe') || text.toLowerCase().includes('payment')) {
+          reply = "💳 <strong>Payment Safety:</strong> Yes! PhonePe UPI, QR scan, and Cards are 100% safe. If your train skips the halt, refund is initiated automatically to your PhonePe account within 15 minutes.";
+        } else if (text.toLowerCase().includes('rain') || text.toLowerCase().includes('snack')) {
+          reply = "☕ <strong>Weather AI Pick:</strong> Light rain at Ongole (28°C)! Try hot <strong>Ongole Mirchi Bajji</strong> or <strong>Filter Coffee</strong>.";
+        }
+
+        history.innerHTML += `
+          <div class="bg-slate-100 dark:bg-slate-800 p-3 rounded-2xl rounded-tl-none border border-slate-200/60 dark:border-slate-700/50">
+            ${reply}
+          </div>
+        `;
+        history.scrollTop = history.scrollHeight;
+      }, 600);
+    }
+
+    // --- SEARCH & FILTER HELPERS ---
+    function searchStationWeather() {
+      const val = document.getElementById('weather-search-input').value.trim();
+      if (!val) return;
+      document.getElementById('weather-city-name').innerText = `${val} Area`;
+      showToast(`Weather synced for ${val}`);
+    }
+
+    function filterByWeatherMatch() {
+      setCategoryFilter('Snacks & Drinks');
+    }
+
+    function filterByStation(code) {
+      const items = FOOD_ITEMS.filter(f => f.station.includes(code));
+      renderFoodGrid(items);
+      showToast(`Showing food available at ${code}`);
+    }
+
+    function setCategoryFilter(cat) {
+      currentCategoryFilter = cat;
+      renderCategoryPills();
+      if (cat === 'All') renderFoodGrid(FOOD_ITEMS);
+      else renderFoodGrid(FOOD_ITEMS.filter(f => f.category === cat));
+    }
+
+    function filterMenu() {
+      const query = document.getElementById('menu-search-input').value.toLowerCase();
+      const filtered = FOOD_ITEMS.filter(f => f.name.toLowerCase().includes(query) || f.desc.toLowerCase().includes(query));
+      renderFoodGrid(filtered);
+    }
+
+    function calculateSplit() {
+      const subtotal = cart.reduce((acc, c) => acc + (c.price * c.qty), 0);
+      const total = subtotal + Math.round(subtotal * 0.05);
+      const count = parseInt(document.getElementById('split-people').value) || 1;
+      document.getElementById('split-result').innerText = `₹${Math.round(total / count)}`;
+    }
+
+    function copyRoomCode() {
+      const dummy = document.createElement("textarea");
+      document.body.appendChild(dummy);
+      dummy.value = "TRV-8942";
+      dummy.select();
+      document.execCommand("copy");
+      document.body.removeChild(dummy);
+      showToast("Group Room Code copied to clipboard!");
+    }
+
+    function startLiveGPSSimulation() {
+      setInterval(() => {
+        const speedEl = document.getElementById('live-speed');
+        if (speedEl) {
+          const currentSpeed = parseInt(speedEl.innerText);
+          const delta = Math.floor(Math.random() * 3) - 1;
+          speedEl.innerText = Math.max(70, Math.min(100, currentSpeed + delta));
+        }
+      }, 4000);
+    }
+
+    function toggleDrawer(id) {
+      const drawer = document.getElementById(id);
+      drawer.classList.toggle('translate-x-full');
+    }
+
+    function toggleModal(id) {
+      const modal = document.getElementById(id);
+      modal.classList.toggle('hidden');
+    }
+
+    function toggleDarkMode() {
+      document.documentElement.classList.toggle('dark');
+      showToast('Theme Toggled');
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-message').innerText = msg;
+      toast.classList.remove('opacity-0');
+      toast.classList.add('opacity-100');
+      setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0');
+      }, 2500);
+    }
+  </script>
+</body>
+</html>

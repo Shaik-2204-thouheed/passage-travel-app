@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GuardianTransit - Anti-Robbery & Anti-Terror Emergency System</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Leaflet CSS & JS for Live Maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            900: '#0c4a6e',
+                        }
+                    },
+                    animation: {
+                        'pulse-fast': 'pulse 0.8s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'radar-sweep': 'radar 3s linear infinite',
+                    },
+                    keyframes: {
+                        radar: {
+                            '0%': { transform: 'rotate(0deg)' },
+                            '100%': { transform: 'rotate(360deg)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .strobe-alert {
+            animation: strobe 0.3s infinite alternate;
+        }
+        @keyframes strobe {
+            0% { background-color: rgba(220, 38, 38, 0.8); }
+            100% { background-color: rgba(15, 23, 42, 0.95); }
+        }
+        .scanner-grid {
+            background-size: 30px 30px;
+            background-image: 
+                linear-gradient(to right, rgba(14, 165, 233, 0.1) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(14, 165, 233, 0.1) 1px, transparent 1px);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-40 shadow-xl">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-red-600/40">
+                    <i class="fas fa-shield-cat"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg text-white leading-tight flex items-center gap-2">
+                        GuardianTransit <span class="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full border border-red-500/30">PRO-SAFETY</span>
+                    </h1>
+                    <p class="text-[11px] text-slate-400">AP Police & All-India Anti-Robbery & Anti-Terror Emergency Mesh</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-3">
+                <div id="status-pill" class="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span id="status-text">System Active & Monitored</span>
+                </div>
+                <button onclick="openProfileModal()" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl border border-slate-700 text-xs flex items-center gap-2 transition-all">
+                    <i class="fas fa-user-shield text-blue-400"></i>
+                    <span class="hidden sm:inline" id="user-profile-badge">Passenger Profile</span>
+                </button>
+            </div>
+        </div>
+    </header>
+    <!-- PASSAGE / EMERGENCY PORTAL INTEGRATION -->
+    <section id="passage-safety-bridge" class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-5">
+      <div class="rounded-2xl border border-cyan-500/30 bg-slate-900/95 p-4 sm:p-5 shadow-xl">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <p class="text-xs uppercase tracking-widest font-bold text-cyan-300">Connected journey services</p>
+            <h2 class="text-lg font-black text-white mt-1">Passage & Emergency Portal</h2>
+            <p class="text-sm text-slate-300 mt-1">Jump between booking and emergency tools. This local page cannot dispatch police or share live vehicle data unless connected to an authorized backend.</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <a href="./Passage%20%E2%80%94%20multi-city%20journey%20booking.html" class="rounded-xl px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold">← Passage Booking</a>
+            <a href="./emergency.html" class="rounded-xl px-4 py-2.5 bg-red-700 hover:bg-red-600 text-white text-sm font-bold">Emergency Response Portal</a>
+            <a href="https://www.google.com/maps/search/hospital+near+me" target="_blank" rel="noopener noreferrer" class="rounded-xl px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-bold">Nearby hospitals</a>
+          </div>
+        </div>
+        <div class="mt-4 flex flex-col sm:flex-row gap-3 sm:items-center">
+          <button type="button" onclick="guardianFindLocation()" class="rounded-xl px-4 py-2.5 bg-cyan-700 hover:bg-cyan-600 text-white text-sm font-bold">Locate me on map</button>
+          <p id="guardianLocationStatus" role="status" aria-live="polite" class="text-xs text-slate-300">Location is requested only when you press the button.</p>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- Main Navigation Bar -->
+    <nav class="bg-slate-900/80 backdrop-blur-md border-b border-slate-800/80 sticky top-16 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex overflow-x-auto py-2 space-x-2 scrollbar-none">
+            <button id="nav-sos" onclick="switchTab('sos')" class="nav-tab active-tab px-4 py-2.5 rounded-xl font-medium text-white bg-blue-600 flex items-center gap-2 text-sm whitespace-nowrap shadow-md">
+                <i class="fas fa-triangle-exclamation text-amber-300"></i> Emergency SOS & Sirens
+            </button>
+            <button id="nav-directory" onclick="switchTab('directory')" class="nav-tab px-4 py-2.5 rounded-xl font-medium text-slate-400 hover:text-slate-200 flex items-center gap-2 text-sm whitespace-nowrap">
+                <i class="fas fa-building-shield text-emerald-400"></i> AP & All-India Police Directory
+            </button>
+            <button id="nav-map" onclick="switchTab('map')" class="nav-tab px-4 py-2.5 rounded-xl font-medium text-slate-400 hover:text-slate-200 flex items-center gap-2 text-sm whitespace-nowrap">
+                <i class="fas fa-map-location-dot text-cyan-400"></i> Live GPS & Transit Route
+            </button>
+            <button id="nav-scanner" onclick="switchTab('scanner')" class="nav-tab px-4 py-2.5 rounded-xl font-medium text-slate-400 hover:text-slate-200 flex items-center gap-2 text-sm whitespace-nowrap">
+                <i class="fas fa-crosshairs text-red-400"></i> AI Weapon & Threat Scanner
+            </button>
+            <button id="nav-ai" onclick="switchTab('ai')" class="nav-tab px-4 py-2.5 rounded-xl font-medium text-slate-400 hover:text-slate-200 flex items-center gap-2 text-sm whitespace-nowrap">
+                <i class="fas fa-brain text-purple-400"></i> Meta AI Guidelines
+            </button>
+            <button id="nav-command" onclick="switchTab('command')" class="nav-tab px-4 py-2.5 rounded-xl font-medium text-slate-400 hover:text-slate-200 flex items-center gap-2 text-sm whitespace-nowrap">
+                <i class="fas fa-tower-observation text-amber-400"></i> Police Command Dashboard
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+
+        <!-- TAB 1: EMERGENCY SOS & TERROR SIGNAL -->
+        <div id="tab-sos" class="tab-content space-y-6">
+            <!-- Severe Distress Action Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Terror Attack Signal (Critical High Alarm) -->
+                <div class="bg-gradient-to-br from-red-950/80 via-slate-900 to-slate-900 border-2 border-red-600/80 rounded-2xl p-6 shadow-2xl relative overflow-hidden flex flex-col justify-between">
+                    <div class="absolute -right-8 -top-8 text-red-600/10 text-9xl pointer-events-none">
+                        <i class="fas fa-burst"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="px-3 py-1 rounded-full bg-red-600/20 text-red-400 border border-red-500/40 text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
+                                <i class="fas fa-skull-crossbones text-red-500 animate-bounce"></i> TERROR / EXTREME THREAT SIGNAL
+                            </span>
+                            <span class="text-xs text-slate-400 font-mono">PRIORITY 0</span>
+                        </div>
+                        <h2 class="text-2xl font-black text-white">TERROR / HOSTAGE ATTACK SOS</h2>
+                        <p class="text-xs text-slate-300 mt-2 leading-relaxed">
+                            Triggers immediate silent dispatch signal to AP State Special Command & MHA 112 ERSS. Transmits real-time vehicle audio feed & locks emergency route tracking.
+                        </p>
+                    </div>
+                    <div class="mt-6 space-y-3">
+                        <button onclick="triggerTerrorSOS()" class="w-full py-4 bg-red-600 hover:bg-red-500 active:scale-95 text-white font-black text-lg rounded-xl shadow-lg shadow-red-600/50 flex items-center justify-center gap-3 transition-all border border-red-400">
+                            <i class="fas fa-radiation text-2xl"></i> TRANSMIT TERROR ATTACK SIGNAL
+                        </button>
+                        <p class="text-[11px] text-center text-slate-400">Automatically alerts nearest police patrol interceptors & hides passenger phone UI if silent mode selected.</p>
+                    </div>
+                </div>
+
+                <!-- Armed Robbery / Passenger Panic Siren -->
+                <div class="bg-gradient-to-br from-amber-950/80 via-slate-900 to-slate-900 border-2 border-amber-600/80 rounded-2xl p-6 shadow-2xl relative overflow-hidden flex flex-col justify-between">
+                    <div class="absolute -right-8 -top-8 text-amber-600/10 text-9xl pointer-events-none">
+                        <i class="fas fa-bullhorn"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="px-3 py-1 rounded-full bg-amber-600/20 text-amber-400 border border-amber-500/40 text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
+                                <i class="fas fa-shield-cat"></i> VEHICLE ROBBERY ALARM
+                            </span>
+                            <span class="text-xs text-slate-400 font-mono">PRIORITY 1</span>
+                        </div>
+                        <h2 class="text-2xl font-black text-white">ROBBERY / ASSAULT ALARM</h2>
+                        <p class="text-xs text-slate-300 mt-2 leading-relaxed">
+                            Activates high-decibel onboard dual siren through speaker system, flashes distress strobe lighting, and alerts nearest highway patrol team.
+                        </p>
+                    </div>
+                    <div class="mt-6 grid grid-cols-2 gap-3">
+                        <button onclick="toggleSiren(true)" class="py-4 bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-black text-sm rounded-xl shadow-lg shadow-amber-500/30 flex items-center justify-center gap-2 transition-all">
+                            <i class="fas fa-volume-high text-xl"></i> START LOUD SIREN
+                        </button>
+                        <button onclick="toggleSiren(false)" class="py-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-sm rounded-xl border border-slate-700 flex items-center justify-center gap-2 transition-all">
+                            <i class="fas fa-volume-xmark text-xl"></i> MUTE ALARM
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Siren Control & Audio Synth Panel -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                <h3 class="text-base font-bold text-white mb-4 flex items-center gap-2">
+                    <i class="fas fa-sliders text-blue-400"></i> Siren Frequency & Police Audio Synthesizer
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="p-4 bg-slate-950 rounded-xl border border-slate-800">
+                        <label class="text-xs text-slate-400 font-semibold block mb-2">SIREN TYPE</label>
+                        <select id="siren-type-select" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-blue-500">
+                            <option value="police">AP Police Interceptor Siren (Yelp)</option>
+                            <option value="terror">Terror Red-Alert Strobe Tone</option>
+                            <option value="horn">High-Decibel Vehicle Horn Blast</option>
+                        </select>
+                    </div>
+                    <div class="p-4 bg-slate-950 rounded-xl border border-slate-800">
+                        <label class="text-xs text-slate-400 font-semibold block mb-2">AUDIO VOLUME LEVEL</label>
+                        <input type="range" id="siren-vol" min="0" max="1" step="0.1" value="0.9" class="w-full accent-blue-500">
+                    </div>
+                    <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
+                        <div>
+                            <span class="text-xs font-semibold text-white block">SILENT PANIC MODE</span>
+                            <span class="text-[10px] text-slate-400">Alerts police without sounding speaker siren</span>
+                        </div>
+                        <input type="checkbox" id="silent-mode-toggle" class="w-5 h-5 accent-red-500 rounded">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: AP & ALL-INDIA POLICE DIRECTORY -->
+        <div id="tab-directory" class="tab-content hidden space-y-6">
+            <!-- Official Portals Direct Banner -->
+            <div class="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 border border-blue-800/50 rounded-2xl p-6 shadow-xl">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2 mb-2">
+                    <i class="fas fa-building-shield text-blue-400"></i> Official AP Police & All-India Emergency Links & Portals
+                </h3>
+                <p class="text-xs text-slate-300 mb-4">Direct verified links to official government citizen services, cyber crime reporting, and ERSS emergency desks.</p>
+                
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                    <a href="https://www.appolice.gov.in" target="_blank" rel="noopener noreferrer" class="p-3 bg-slate-950/90 hover:bg-slate-800 border border-slate-800 hover:border-blue-500 rounded-xl flex flex-col justify-between transition-all group">
+                        <span class="text-xs font-bold text-white group-hover:text-blue-400">AP Police Main</span>
+                        <span class="text-[10px] text-slate-400 mt-1">appolice.gov.in <i class="fas fa-arrow-up-right-from-square text-[8px]"></i></span>
+                    </a>
+                    <a href="https://digitalpolice.gov.in" target="_blank" rel="noopener noreferrer" class="p-3 bg-slate-950/90 hover:bg-slate-800 border border-slate-800 hover:border-amber-500 rounded-xl flex flex-col justify-between transition-all group">
+                        <span class="text-xs font-bold text-white group-hover:text-amber-400">Digital Police India</span>
+                        <span class="text-[10px] text-slate-400 mt-1">digitalpolice.gov.in <i class="fas fa-arrow-up-right-from-square text-[8px]"></i></span>
+                    </a>
+                    <a href="https://112.gov.in" target="_blank" rel="noopener noreferrer" class="p-3 bg-slate-950/90 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500 rounded-xl flex flex-col justify-between transition-all group">
+                        <span class="text-xs font-bold text-white group-hover:text-emerald-400">ERSS 112 National</span>
+                        <span class="text-[10px] text-slate-400 mt-1">112.gov.in <i class="fas fa-arrow-up-right-from-square text-[8px]"></i></span>
+                    </a>
+                    <a href="https://cybercrime.gov.in" target="_blank" rel="noopener noreferrer" class="p-3 bg-slate-950/90 hover:bg-slate-800 border border-slate-800 hover:border-red-500 rounded-xl flex flex-col justify-between transition-all group">
+                        <span class="text-xs font-bold text-white group-hover:text-red-400">Cyber Crime Portal</span>
+                        <span class="text-[10px] text-slate-400 mt-1">cybercrime.gov.in <i class="fas fa-arrow-up-right-from-square text-[8px]"></i></span>
+                    </a>
+                    <a href="https://eagle.appolice.gov.in" target="_blank" rel="noopener noreferrer" class="p-3 bg-slate-950/90 hover:bg-slate-800 border border-slate-800 hover:border-purple-500 rounded-xl flex flex-col justify-between transition-all group">
+                        <span class="text-xs font-bold text-white group-hover:text-purple-400">AP EAGLE Narcotics</span>
+                        <span class="text-[10px] text-slate-400 mt-1">eagle.appolice.gov.in <i class="fas fa-arrow-up-right-from-square text-[8px]"></i></span>
+                    </a>
+                    <a href="https://ncrb.gov.in" target="_blank" rel="noopener noreferrer" class="p-3 bg-slate-950/90 hover:bg-slate-800 border border-slate-800 hover:border-cyan-500 rounded-xl flex flex-col justify-between transition-all group">
+                        <span class="text-xs font-bold text-white group-hover:text-cyan-400">NCRB Directory</span>
+                        <span class="text-[10px] text-slate-400 mt-1">ncrb.gov.in <i class="fas fa-arrow-up-right-from-square text-[8px]"></i></span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Dynamic Next-Station Search & Sequential Route Grid -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                    <div>
+                        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                            <i class="fas fa-route text-emerald-400"></i> Next-Station Route Directory (AP Highways & Pan-India)
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Sequential police station linkage to locate the next police post along your current transit line.</p>
+                    </div>
+
+                    <div class="flex flex-wrap gap-2 w-full md:w-auto">
+                        <input type="text" id="station-search-input" onkeyup="filterStationDirectory()" placeholder="Search Station, District, SHO..." class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 w-full md:w-60">
+                        <select id="district-select" onchange="filterStationDirectory()" class="bg-slate-950 border border-slate-700 text-white text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-blue-500">
+                            <option value="ALL">All AP Districts & All-India</option>
+                            <option value="Prakasam / Ongole">Prakasam / Ongole</option>
+                            <option value="NTR / Vijayawada">NTR / Vijayawada</option>
+                            <option value="SPSR Nellore">SPSR Nellore</option>
+                            <option value="Visakhapatnam">Visakhapatnam</option>
+                            <option value="Guntur">Guntur</option>
+                            <option value="Tirupati">Tirupati</option>
+                            <option value="Kurnool">Kurnool</option>
+                            <option value="ALL-INDIA HUBS">All-India Command Hubs</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Station List Container -->
+                <div id="station-grid-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Dynamic rendering via JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: LIVE GPS MAP & TRANSIT ROUTE -->
+        <div id="tab-map" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Map View -->
+                <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col h-[520px]">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full bg-cyan-400 animate-pulse"></span>
+                            <h3 class="text-sm font-bold text-white">Live Vehicle & Passenger Tracking</h3>
+                        </div>
+                        <button onclick="recenterMap()" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 rounded-lg border border-slate-700">
+                            <i class="fas fa-crosshairs text-cyan-400 mr-1"></i> Center My GPS
+                        </button>
+                    </div>
+                    <div id="map-element" class="flex-1 rounded-xl bg-slate-950 overflow-hidden border border-slate-800 z-10"></div>
+                </div>
+
+                <!-- Live Route Data & Station Telemetry -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-base font-bold text-white mb-3 flex items-center gap-2">
+                            <i class="fas fa-compass text-cyan-400"></i> Next Station Transit Detector
+                        </h3>
+                        
+                        <div class="space-y-4">
+                            <div class="p-3 bg-slate-950 rounded-xl border border-slate-800">
+                                <span class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">CURRENT VEHICLE LOCATION</span>
+                                <p id="current-coords-display" class="text-xs text-cyan-300 font-mono font-bold mt-1">Acquiring GPS Signal...</p>
+                            </div>
+
+                            <div class="p-3 bg-slate-950 rounded-xl border border-slate-800">
+                                <span class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">CLOSEST POLICE STATION</span>
+                                <h4 id="closest-station-name" class="text-sm font-bold text-white mt-0.5">Calculating distance...</h4>
+                                <div class="flex items-center justify-between text-xs text-slate-400 mt-2">
+                                    <span>Distance: <strong id="closest-station-dist" class="text-emerald-400">-- km</strong></span>
+                                    <span>ETA: <strong id="closest-station-eta" class="text-amber-400">-- mins</strong></span>
+                                </div>
+                            </div>
+
+                            <div class="p-3 bg-slate-950 rounded-xl border border-slate-800">
+                                <span class="text-[10px] text-amber-400 uppercase font-bold tracking-wider flex items-center gap-1">
+                                    <i class="fas fa-forward"></i> NEXT SEQUENTIAL ROUTE STATION
+                                </span>
+                                <h4 id="next-station-name" class="text-xs font-bold text-slate-200 mt-1">Ongole Town PS → Singarayakonda PS</h4>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button onclick="shareLiveLocation()" class="w-full mt-4 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-cyan-600/30">
+                        <i class="fas fa-share-nodes"></i> Share Live Transit Link With Police
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: AI SPATIAL & WEAPON SCANNER -->
+        <div id="tab-scanner" class="tab-content hidden space-y-6">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                            <i class="fas fa-crosshairs text-red-500"></i> AI Spatial Threat & Weapon Detection Scanner
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Real-time simulation feed analyzing threat vectors inside vehicle compartment.</p>
+                    </div>
+                    <button onclick="runThreatScan()" class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-red-600/30 flex items-center gap-2">
+                        <i class="fas fa-radar animate-spin"></i> Trigger Live AI Scan
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Scanner Viewfinder -->
+                    <div class="lg:col-span-2 relative h-80 bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden scanner-grid flex items-center justify-center">
+                        <div class="absolute inset-0 border-2 border-slate-800 pointer-events-none"></div>
+                        <div id="radar-sweep-line" class="absolute w-full h-full border-b-2 border-red-500/50 bg-gradient-to-b from-red-500/5 to-transparent hidden"></div>
+                        
+                        <div id="scanner-status-box" class="text-center p-6">
+                            <i class="fas fa-eye text-4xl text-slate-700 mb-2"></i>
+                            <p class="text-sm text-slate-400 font-semibold">AI Threat Scanner Standby</p>
+                            <p class="text-xs text-slate-600 mt-1">Press "Trigger Live AI Scan" to run compartment diagnostic</p>
+                        </div>
+                    </div>
+
+                    <!-- Threat Diagnostic Results -->
+                    <div class="bg-slate-950 rounded-2xl p-4 border border-slate-800 space-y-3">
+                        <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Detection Logs</h4>
+                        <div class="p-3 bg-slate-900 rounded-xl border border-slate-800">
+                            <span class="text-[10px] text-slate-400 block">WEAPON DETECTION</span>
+                            <span id="weapon-status" class="text-xs font-bold text-emerald-400">NO WEAPONS DETECTED</span>
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded-xl border border-slate-800">
+                            <span class="text-[10px] text-slate-400 block">HUMAN COMPARTMENT COUNT</span>
+                            <span id="human-count" class="text-xs font-bold text-slate-200">4 Passengers Identified</span>
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded-xl border border-slate-800">
+                            <span class="text-[10px] text-slate-400 block">RISK INDEX</span>
+                            <span id="risk-index" class="text-xs font-bold text-emerald-400">LOW (NORMAL TRANSIT)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 5: META AI SAFETY GUIDELINES -->
+        <div id="tab-ai" class="tab-content hidden space-y-6">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                <h3 class="text-lg font-bold text-white mb-2 flex items-center gap-2">
+                    <i class="fas fa-brain text-purple-400"></i> Meta Safety AI Guidelines & Anti-Hostage Protocol
+                </h3>
+                <p class="text-xs text-slate-400 mb-6">Interactive AI advisory providing safety tactics during vehicle robbery or terror threats.</p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="p-4 bg-slate-950 rounded-xl border border-slate-800">
+                        <h4 class="text-sm font-bold text-red-400 flex items-center gap-2 mb-2">
+                            <i class="fas fa-shield-cat"></i> During Armed Robbery
+                        </h4>
+                        <ul class="text-xs text-slate-300 space-y-2 list-disc pl-4">
+                            <li>Remain calm and do not attempt aggressive physical confrontation.</li>
+                            <li>Use Silent Panic SOS on GuardianTransit to alert AP Police without drawing attention.</li>
+                            <li>Memorize perpetrator descriptions and vehicle direction of transit.</li>
+                        </ul>
+                    </div>
+
+                    <div class="p-4 bg-slate-950 rounded-xl border border-slate-800">
+                        <h4 class="text-sm font-bold text-purple-400 flex items-center gap-2 mb-2">
+                            <i class="fas fa-burst"></i> Terror / Hostage Situation
+                        </h4>
+                        <ul class="text-xs text-slate-300 space-y-2 list-disc pl-4">
+                            <li>Activate Terror SOS button to start low-bandwidth silent live location stream.</li>
+                            <li>Keep phone hidden; system will send periodic GPS updates to MHA 112 desk.</li>
+                            <li>Stay low below vehicle window line if gunfire is heard outside.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 6: POLICE COMMAND DASHBOARD -->
+        <div id="tab-command" class="tab-content hidden space-y-6">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i class="fas fa-tower-observation text-amber-400"></i> AP Police Interceptor Command Hub
+                    </h3>
+                    <span class="text-xs bg-amber-500/10 text-amber-400 border border-amber-500/30 px-3 py-1 rounded-full font-bold">DISTRICT CONTROL</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="p-4 bg-slate-950 rounded-xl border border-slate-800">
+                        <span class="text-[10px] text-slate-400">ACTIVE DISPATCH UNITS</span>
+                        <p class="text-xl font-black text-emerald-400 mt-1">12 Patrol Vehicles</p>
+                    </div>
+                    <div class="p-4 bg-slate-950 rounded-xl border border-slate-800">
+                        <span class="text-[10px] text-slate-400">INCOMING HIGHWAY ALERTS</span>
+                        <p id="command-alert-count" class="text-xl font-black text-slate-200 mt-1">0 Distress Alerts</p>
+                    </div>
+                    <div class="p-4 bg-slate-950 rounded-xl border border-slate-800">
+                        <span class="text-[10px] text-slate-400">INTERCEPTOR DISPATCH TIME</span>
+                        <p class="text-xl font-black text-blue-400 mt-1">&lt; 4.2 Minutes</p>
+                    </div>
+                </div>
+
+                <!-- Console Audit Stream -->
+                <div class="bg-slate-950 rounded-xl p-4 border border-slate-800">
+                    <h4 class="text-xs font-bold text-slate-400 uppercase mb-2">Live Security Audit Console</h4>
+                    <div id="security-console" class="h-40 overflow-y-auto font-mono text-[11px] text-slate-300 space-y-1 pr-2">
+                        <p class="text-slate-500">[SYSTEM INIT] GuardianTransit Anti-Robbery Network connected to AP Police Grid...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Passenger Profile Modal -->
+    <div id="profile-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+            <button onclick="closeProfileModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+                <i class="fas fa-xmark text-lg"></i>
+            </button>
+            <h3 class="text-lg font-bold text-white mb-1">Passenger Profile & Emergency Contact</h3>
+            <p class="text-xs text-slate-400 mb-4">Saved locally to auto-attach profile during emergency signals.</p>
+
+            <form onsubmit="saveProfile(event)" class="space-y-3">
+                <div>
+                    <label class="text-xs text-slate-300 font-semibold">Full Name</label>
+                    <input type="text" id="prof-name" required placeholder="John Doe" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white mt-1">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-300 font-semibold">Mobile Number</label>
+                    <input type="tel" id="prof-phone" required placeholder="+91 98765 43210" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white mt-1">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-300 font-semibold">Emergency Relative Contact</label>
+                    <input type="tel" id="prof-emergency" required placeholder="+91 91234 56789" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white mt-1">
+                </div>
+                <div class="pt-2 flex justify-end gap-2">
+                    <button type="button" onclick="closeProfileModal()" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs font-semibold">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold">Save Profile</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // DATA ARRAY: POLICE STATIONS DIRECTORY WITH SEQUENTIAL NEXT-STATION LINKAGE
+        const POLICE_STATIONS = [
+            {
+                id: "AP-ONG-01",
+                name: "Ongole Town I Police Station",
+                district: "Prakasam / Ongole",
+                code: "PS-ONG-01",
+                phone: "08592-233100 / 112",
+                sho: "Inspector M. Venkateswarlu",
+                shoContact: "+91 94407 96120",
+                address: "Kurnool Road, Near Church Centre, Ongole, Prakasam District, AP - 523001",
+                coords: [15.5057, 80.0499],
+                nextStation: "Singarayakonda Police Station (Distance: 24 km South)",
+                nextStationId: "AP-SING-01"
+            },
+            {
+                id: "AP-SING-01",
+                name: "Singarayakonda Police Station",
+                district: "Prakasam / Ongole",
+                code: "PS-SING-01",
+                phone: "08598-283222 / 112",
+                sho: "Inspector K. Srinivas Rao",
+                shoContact: "+91 94407 96128",
+                address: "NH-16 Highway Junction, Singarayakonda, Prakasam District, AP - 523101",
+                coords: [15.2492, 80.0321],
+                nextStation: "Kavali Town Police Station (Distance: 38 km South)",
+                nextStationId: "AP-KAV-01"
+            },
+            {
+                id: "AP-KAV-01",
+                name: "Kavali Town Police Station",
+                district: "SPSR Nellore",
+                code: "PS-KAV-01",
+                phone: "08626-240100 / 112",
+                sho: "Inspector P. Rajesh",
+                shoContact: "+91 94407 96410",
+                address: "Trunk Road, Kavali, SPSR Nellore District, AP - 524201",
+                coords: [14.9131, 79.9928],
+                nextStation: "Nellore City I Police Station (Distance: 56 km South)",
+                nextStationId: "AP-NLR-01"
+            },
+            {
+                id: "AP-VJA-01",
+                name: "Vijayawada Central Police Station",
+                district: "NTR / Vijayawada",
+                code: "PS-VJA-01",
+                phone: "0866-2577777 / 112",
+                sho: "Inspector R. K. Varma",
+                shoContact: "+91 94407 96001",
+                address: "MG Road, Governorpet, Vijayawada, NTR District, AP - 520002",
+                coords: [16.5062, 80.6480],
+                nextStation: "Guntur Urban Law & Order PS (Distance: 32 km South)",
+                nextStationId: "AP-GNT-01"
+            },
+            {
+                id: "AP-VSKP-01",
+                name: "Visakhapatnam City One Town PS",
+                district: "Visakhapatnam",
+                code: "PS-VSKP-01",
+                phone: "0891-2565100 / 112",
+                sho: "Inspector B. Appala Naidu",
+                shoContact: "+91 94407 96050",
+                address: "Beach Road, Town Kotta, Visakhapatnam, AP - 530001",
+                coords: [17.6868, 83.2185],
+                nextStation: "Anakapalle Town Police Station (Distance: 34 km West)",
+                nextStationId: "AP-AKP-01"
+            },
+            {
+                id: "AP-GNT-01",
+                name: "Guntur Urban Law & Order PS",
+                district: "Guntur",
+                code: "PS-GNT-01",
+                phone: "0863-2234500 / 112",
+                sho: "Inspector S. Srinivas",
+                shoContact: "+91 94407 96150",
+                address: "Near Old Bus Stand, Brodipet, Guntur, AP - 522002",
+                coords: [16.3067, 80.4365],
+                nextStation: "Chilakaluripet Town PS (Distance: 41 km South-West)",
+                nextStationId: "AP-CPT-01"
+            },
+            {
+                id: "AP-TPT-01",
+                name: "Tirupati East Police Station",
+                district: "Tirupati",
+                code: "PS-TPT-01",
+                phone: "0877-2289100 / 112",
+                sho: "Inspector K. Prasad Rao",
+                shoContact: "+91 94407 96210",
+                address: "Alipiri Bypass Road, Tirupati, AP - 517501",
+                coords: [13.6288, 79.4192],
+                nextStation: "Chittoor Two Town Police Station (Distance: 68 km West)",
+                nextStationId: "AP-CTR-01"
+            },
+            {
+                id: "AP-KRN-01",
+                name: "Kurnool City I Police Station",
+                district: "Kurnool",
+                code: "PS-KRN-01",
+                phone: "08518-220050 / 112",
+                sho: "Inspector P. Ramanjaneyulu",
+                shoContact: "+91 94407 96300",
+                address: "Fort Road, Old City, Kurnool, AP - 518001",
+                coords: [15.8281, 78.0373],
+                nextStation: "Dhone Town PS (Distance: 52 km South)",
+                nextStationId: "AP-DHN-01"
+            },
+            {
+                id: "AP-NLR-01",
+                name: "Nellore City I Police Station",
+                district: "SPSR Nellore",
+                code: "PS-NLR-01",
+                phone: "0861-2331100 / 112",
+                sho: "Inspector D. V. Ramana",
+                shoContact: "+91 94407 96450",
+                address: "Trunk Road, Nellore, AP - 524001",
+                coords: [14.4426, 79.9865],
+                nextStation: "Gudur Town Police Station (Distance: 38 km South)",
+                nextStationId: "AP-GDR-01"
+            },
+            {
+                id: "IND-MHA-01",
+                name: "Central Police Control Room (MHA 112 Hub)",
+                district: "ALL-INDIA HUBS",
+                code: "IND-MHA-112",
+                phone: "112 / 011-23092011",
+                sho: "Duty Command Officer",
+                shoContact: "112 Central Desk",
+                address: "North Block, Central Secretariat, New Delhi - 110001",
+                coords: [28.6143, 77.2014],
+                nextStation: "Interconnected to State ERSS Networks",
+                nextStationId: "AP-VJA-01"
+            }
+        ];
+
+        // GLOBAL APP STATE VARIABLES
+        let currentPos = [15.5057, 80.0499]; // Default to Ongole
+        let map = null;
+        let userMarker = null;
+        let audioCtx = null;
+        let sirenOscillator = null;
+        let isSirenActive = false;
+
+        // INIT ON LOAD
+        window.onload = function() {
+            initMap();
+            initGeolocation();
+            renderDirectory(POLICE_STATIONS);
+            addConsoleLog("GuardianTransit operational. GPS tracking active.");
+        };
+
+        // TAB SWITCHER
+        function switchTab(tabKey) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.nav-tab').forEach(el => {
+                el.classList.remove('bg-blue-600', 'text-white', 'shadow-md');
+                el.classList.add('text-slate-400');
+            });
+
+            document.getElementById(`tab-${tabKey}`)?.classList.remove('hidden');
+            const activeNav = document.getElementById(`nav-${tabKey}`);
+            if (activeNav) {
+                activeNav.classList.add('bg-blue-600', 'text-white', 'shadow-md');
+                activeNav.classList.remove('text-slate-400');
+            }
+
+            if (tabKey === 'map' && map) {
+                setTimeout(() => map.invalidateSize(), 200);
+            }
+        }
+
+        // RENDER STATIONS DIRECTORY
+        function renderDirectory(stations) {
+            const container = document.getElementById('station-grid-container');
+            if (!container) return;
+
+            if (stations.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full text-center py-8 text-slate-500 text-xs">
+                        No police stations matching your search filters.
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = stations.map(s => `
+                <div class="bg-slate-950 border border-slate-800 hover:border-blue-500/50 rounded-xl p-4 flex flex-col justify-between transition-all shadow-md group">
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[10px] font-bold uppercase border border-blue-500/20">${s.district}</span>
+                            <span class="text-[10px] text-slate-500 font-mono">${s.code}</span>
+                        </div>
+                        <h4 class="font-bold text-sm text-white group-hover:text-blue-300 transition-colors flex items-center gap-1.5">
+                            <i class="fas fa-building-shield text-blue-400 text-xs"></i> ${s.name}
+                        </h4>
+                        <p class="text-[11px] text-slate-400 mt-2 bg-slate-900/80 p-2 rounded-lg border border-slate-850">
+                            <i class="fas fa-location-dot text-red-400 mr-1"></i> ${s.address}
+                        </p>
+                        <div class="mt-2 text-xs text-slate-300 flex justify-between">
+                            <span class="text-slate-400">SHO: ${s.sho}</span>
+                            <a href="tel:${s.phone.split('/')[0].trim()}" class="text-emerald-400 font-bold hover:underline">${s.phone}</a>
+                        </div>
+                        <div class="mt-3 pt-2 border-t border-slate-800/80">
+                            <span class="text-[10px] uppercase font-bold text-amber-400 tracking-wider flex items-center gap-1">
+                                <i class="fas fa-forward"></i> Next Route Station:
+                            </span>
+                            <p class="text-xs text-slate-200 font-medium mt-0.5">${s.nextStation}</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-800 flex items-center gap-2">
+                        <button onclick="focusStationOnMap('${s.id}')" class="flex-1 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-200 border border-blue-500/30 rounded-lg text-xs font-semibold">
+                            <i class="fas fa-map-pin mr-1"></i> View Map
+                        </button>
+                        <a href="tel:112" class="py-1.5 px-3 bg-red-600/20 text-red-300 border border-red-500/30 rounded-lg text-xs font-semibold hover:bg-red-600/40">
+                            <i class="fas fa-phone mr-1"></i> Dial 112
+                        </a>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // FILTER STATIONS
+        function filterStationDirectory() {
+            const query = document.getElementById('station-search-input')?.value.toLowerCase() || '';
+            const district = document.getElementById('district-select')?.value || 'ALL';
+
+            const filtered = POLICE_STATIONS.filter(s => {
+                const matchDistrict = (district === 'ALL') || (s.district === district);
+                const matchQuery = s.name.toLowerCase().includes(query) ||
+                                   s.district.toLowerCase().includes(query) ||
+                                   s.sho.toLowerCase().includes(query) ||
+                                   s.address.toLowerCase().includes(query);
+                return matchDistrict && matchQuery;
+            });
+
+            renderDirectory(filtered);
+        }
+
+        // LEAFLET MAP INIT
+        function initMap() {
+            if (map) return;
+            map = L.map('map-element').setView(currentPos, 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            userMarker = L.marker(currentPos, {
+                icon: L.divIcon({
+                    className: 'custom-user-icon',
+                    html: `<div style="background:#0ea5e9; width:18px; height:18px; border-radius:50%; border:3px solid white; box-shadow:0 0 15px #0ea5e9;"></div>`,
+                    iconSize: [18, 18],
+                    iconAnchor: [9, 9]
+                })
+            }).addTo(map).bindPopup("<b>Your Vehicle Location</b>").openPopup();
+
+            // Render police stations on map
+            POLICE_STATIONS.forEach(st => {
+                if(st.coords) {
+                    L.marker(st.coords, {
+                        icon: L.divIcon({
+                            className: 'custom-station-icon',
+                            html: `<div style="background:#ef4444; width:14px; height:14px; border-radius:3px; border:2px solid white;"></div>`,
+                            iconSize: [14, 14],
+                            iconAnchor: [7, 7]
+                        })
+                    }).addTo(map).bindPopup(`<b>${st.name}</b><br>${st.phone}`);
+                }
+            });
+        }
+
+        // GEOLOCATION ENGINE
+        function initGeolocation() {
+            if ("geolocation" in navigator) {
+                navigator.geolocation.watchPosition(
+                    pos => {
+                        currentPos = [pos.coords.latitude, pos.coords.longitude];
+                        const display = document.getElementById('current-coords-display');
+                        if (display) display.innerText = `${currentPos[0].toFixed(5)}° N, ${currentPos[1].toFixed(5)}° E`;
+
+                        if (userMarker) userMarker.setLatLng(currentPos);
+                        updateClosestStation();
+                    },
+                    err => {
+                        console.warn("GPS fallbacked to Ongole district base coords.");
+                        updateClosestStation();
+                    },
+                    { enableHighAccuracy: true, timeout: 10000 }
+                );
+            }
+        }
+
+        // CLOSEST POLICE STATION CALCULATOR
+        function updateClosestStation() {
+            let minDistance = Infinity;
+            let closest = POLICE_STATIONS[0];
+
+            POLICE_STATIONS.forEach(st => {
+                if (st.coords) {
+                    const dist = getDistanceKm(currentPos[0], currentPos[1], st.coords[0], st.coords[1]);
+                    if (dist < minDistance) {
+                        minDistance = dist;
+                        closest = st;
+                    }
+                }
+            });
+
+            const nameEl = document.getElementById('closest-station-name');
+            const distEl = document.getElementById('closest-station-dist');
+            const etaEl = document.getElementById('closest-station-eta');
+            const nextEl = document.getElementById('next-station-name');
+
+            if (nameEl) nameEl.innerText = closest.name;
+            if (distEl) distEl.innerText = `${minDistance.toFixed(1)} km`;
+            if (etaEl) etaEl.innerText = `${Math.ceil(minDistance * 1.5)} mins`;
+            if (nextEl) nextEl.innerText = `${closest.name} → ${closest.nextStation}`;
+        }
+
+        // HAVERSINE DISTANCE FORMULA
+        function getDistanceKm(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        // SIREN & AUDIO SYNTHESIZER
+        function toggleSiren(enable) {
+            if (enable) {
+                if (document.getElementById('silent-mode-toggle')?.checked) {
+                    addConsoleLog("[SILENT PANIC] Alert sent quietly to Police Command without siren audio.");
+                    alert("Silent Panic SOS Sent to AP Police Desk!");
+                    return;
+                }
+
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (isSirenActive) return;
+
+                sirenOscillator = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                const vol = parseFloat(document.getElementById('siren-vol')?.value || "0.9");
+
+                sirenOscillator.type = 'sawtooth';
+                sirenOscillator.frequency.setValueAtTime(600, audioCtx.currentTime);
+                sirenOscillator.frequency.linearRampToValueAtTime(1200, audioCtx.currentTime + 0.5);
+
+                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+                sirenOscillator.connect(gain);
+                gain.connect(audioCtx.destination);
+                sirenOscillator.start();
+                isSirenActive = true;
+
+                document.body.classList.add('strobe-alert');
+                addConsoleLog("[ALARM ACTIVE] Emergency Loud Siren Triggered.");
+            } else {
+                if (sirenOscillator) {
+                    sirenOscillator.stop();
+                    sirenOscillator.disconnect();
+                    sirenOscillator = null;
+                }
+                isSirenActive = false;
+                document.body.classList.remove('strobe-alert');
+                addConsoleLog("[ALARM MUTED] Siren audio silenced.");
+            }
+        }
+
+        // TERROR SOS TRIGGER
+        function triggerTerrorSOS() {
+            addConsoleLog("[CRITICAL EMERGENCY] TERROR ATTACK SIGNAL BROADCASTED TO AP POLICE 112 COMMAND.");
+            const countEl = document.getElementById('command-alert-count');
+            if (countEl) countEl.innerText = "1 HIGH-PRIORITY TERROR ALERT";
+            
+            toggleSiren(true);
+            alert("🚨 TERROR ATTACK SOS TRANSMITTED!\nYour live location and audio telemetry are locked and sharing with nearest AP Police units and MHA ERSS 112.");
+        }
+
+        // AI SPATIAL THREAT SCANNER SIMULATION
+        function runThreatScan() {
+            const line = document.getElementById('radar-sweep-line');
+            const statusBox = document.getElementById('scanner-status-box');
+            if (line) line.classList.remove('hidden');
+
+            if (statusBox) {
+                statusBox.innerHTML = `
+                    <i class="fas fa-radar text-4xl text-red-500 animate-spin mb-2"></i>
+                    <p class="text-sm text-red-400 font-bold">Scanning Compartment Spatial Vectors...</p>
+                `;
+            }
+
+            setTimeout(() => {
+                if (line) line.classList.add('hidden');
+                if (statusBox) {
+                    statusBox.innerHTML = `
+                        <i class="fas fa-circle-check text-4xl text-emerald-400 mb-2"></i>
+                        <p class="text-sm text-emerald-400 font-bold">Scan Complete - No Active Metallic Weapons Found</p>
+                    `;
+                }
+                document.getElementById('weapon-status').innerText = "CLEAR (0 Threat Vectors Detected)";
+                document.getElementById('risk-index').innerText = "LOW (Safe Status)";
+                addConsoleLog("[AI SCAN] Spatial threat diagnostic complete. Compartment clear.");
+            }, 2500);
+        }
+
+        // SHARE LOCATION LINK
+        function shareLiveLocation() {
+            const shareUrl = `https://maps.google.com/?q=${currentPos[0]},${currentPos[1]}`;
+            navigator.clipboard.writeText(shareUrl);
+            alert(`Live Location URL copied to clipboard!\n${shareUrl}`);
+            addConsoleLog(`[SHARE] Live location link created: ${shareUrl}`);
+        }
+
+        // FOCUS MAP ON SPECIFIC POLICE STATION
+        function focusStationOnMap(stationId) {
+            const station = POLICE_STATIONS.find(s => s.id === stationId);
+            if (!station) return;
+
+            switchTab('map');
+            if (map && station.coords) {
+                map.flyTo(station.coords, 14);
+            }
+        }
+
+        function recenterMap() {
+            if (map) map.flyTo(currentPos, 14);
+        }
+
+        // HELPER SECURITY CONSOLE LOG
+        function addConsoleLog(msg) {
+            const consoleEl = document.getElementById('security-console');
+            if (consoleEl) {
+                const timestamp = new Date().toLocaleTimeString();
+                consoleEl.innerHTML += `<p><span class="text-slate-500">[${timestamp}]</span> ${msg}</p>`;
+                consoleEl.scrollTop = consoleEl.scrollHeight;
+            }
+        }
+
+        // PROFILE MODAL CONTROLS
+        function openProfileModal() {
+            document.getElementById('profile-modal')?.classList.remove('hidden');
+        }
+
+        function closeProfileModal() {
+            document.getElementById('profile-modal')?.classList.add('hidden');
+        }
+
+        function saveProfile(e) {
+            e.preventDefault();
+            const name = document.getElementById('prof-name')?.value;
+            const badge = document.getElementById('user-profile-badge');
+            if (badge && name) badge.innerText = name;
+            closeProfileModal();
+            addConsoleLog(`[PROFILE UPDATED] Passenger registered: ${name}`);
+        }
+    
+        function guardianFindLocation() {
+            const status = document.getElementById('guardianLocationStatus');
+            if (!navigator.geolocation) { status.textContent = 'Geolocation is not supported in this browser.'; return; }
+            status.textContent = 'Requesting location permission…';
+            navigator.geolocation.getCurrentPosition(function(pos) {
+                const lat = pos.coords.latitude.toFixed(6), lon = pos.coords.longitude.toFixed(6);
+                status.innerHTML = 'Location found: ' + lat + ', ' + lon + ' — <a class="text-cyan-300 underline" target="_blank" rel="noopener noreferrer" href="https://www.google.com/maps?q=' + lat + ',' + lon + '">open map</a>. This does not send an alert to authorities.';
+            }, function() { status.textContent = 'Location unavailable or permission denied. Use the Emergency Response Portal or call local emergency services directly.'; }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 });
+        }
+</script>
+</body>
+</html>

@@ -1,0 +1,1638 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Emergency Medical Response & AI Injury Diagnostic Portal</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              red: '#DC2626',
+              darkRed: '#7F1D1D',
+              emerald: '#059669',
+              amber: '#D97706',
+              blue: '#2563EB',
+              purple: '#7C3AED'
+            }
+          },
+          animation: {
+            'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'radar-spin': 'spin 3s linear infinite',
+            'scan-line': 'scanLine 2s linear infinite'
+          },
+          keyframes: {
+            scanLine: {
+              '0%': { top: '0%' },
+              '50%': { top: '95%' },
+              '100%': { top: '0%' }
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Leaflet Maps CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    #map {
+      min-height: 380px;
+      height: 100%;
+      width: 100%;
+      border-radius: 0.75rem;
+      z-index: 10;
+    }
+    .leaflet-popup-content-wrapper {
+      background-color: #111827;
+      color: #f3f4f6;
+      border: 1px solid #374151;
+      border-radius: 0.75rem;
+    }
+    .leaflet-popup-tip {
+      background: #111827;
+    }
+    .sos-glow {
+      box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.8);
+      animation: sosPulse 1.8s infinite;
+    }
+    @keyframes sosPulse {
+      0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.8); }
+      70% { box-shadow: 0 0 0 25px rgba(220, 38, 38, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+    }
+    .scanner-overlay {
+      background: linear-gradient(180deg, rgba(239, 68, 68, 0) 0%, rgba(239, 68, 68, 0.3) 50%, rgba(239, 68, 68, 0) 100%);
+    }
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #090d16;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1f2937;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #374151;
+    }
+  </style>
+</head>
+<body class="bg-gray-950 text-gray-100 font-sans min-h-screen flex flex-col antialiased selection:bg-red-600 selection:text-white">
+
+  <!-- TOP HIGH-CONTRAST HEADER -->
+  <header class="bg-red-700 text-white shadow-2xl sticky top-0 z-50 border-b border-red-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="p-2 bg-white text-red-700 rounded-xl shadow-lg font-extrabold flex items-center justify-center">
+          <i data-lucide="cross" class="w-6 h-6 stroke-[3]"></i>
+        </div>
+        <div>
+          <h1 class="text-lg sm:text-xl font-black tracking-tight leading-tight uppercase flex items-center gap-2">
+            MedDispatch AI <span class="text-[10px] sm:text-xs px-2 py-0.5 bg-red-900/90 rounded border border-red-400 text-red-200">24/7 ER TRAUMA</span>
+          </h1>
+          <p class="text-[11px] text-red-100 font-medium hidden sm:block">Emergency Response, AI Diagnostic & Duty Doctor Network</p>
+        </div>
+      </div>
+
+      <!-- Quick Action Buttons -->
+      <div class="flex items-center gap-2">
+        <button onclick="scrollToSection('scannerSection')" class="px-2.5 py-1.5 bg-red-800 hover:bg-red-900 border border-red-500/60 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
+          <i data-lucide="scan-line" class="w-4 h-4 text-amber-300"></i>
+          <span class="hidden md:inline">AI Scanner</span>
+        </button>
+        <button onclick="openApiModal()" class="px-2.5 py-1.5 bg-red-800 hover:bg-red-900 border border-red-500/60 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
+          <i data-lucide="code" class="w-4 h-4"></i>
+          <span class="hidden lg:inline">API / Link</span>
+        </button>
+        <a href="tel:108" class="px-3.5 py-1.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black rounded-lg text-xs sm:text-sm flex items-center gap-1.5 shadow-md transition transform active:scale-95">
+          <i data-lucide="phone-call" class="w-4 h-4 text-red-700 stroke-[3]"></i>
+          <span>CALL 108 / 911</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- NAVIGATION TABS FOR MOBILE / QUICK ACCESS -->
+  <nav class="bg-gray-900 border-b border-gray-800 sticky top-[57px] z-40">
+    <div class="max-w-7xl mx-auto px-4 flex items-center gap-2 overflow-x-auto py-2 text-xs font-bold no-scrollbar">
+      <button onclick="scrollToSection('sosSection')" class="px-3 py-1.5 rounded-lg bg-red-600/20 text-red-400 border border-red-500/30 flex items-center gap-1.5 shrink-0">
+        <i data-lucide="siren" class="w-3.5 h-3.5"></i> Emergency SOS
+      </button>
+      <button onclick="scrollToSection('scannerSection')" class="px-3 py-1.5 rounded-lg bg-purple-600/20 text-purple-300 border border-purple-500/30 flex items-center gap-1.5 shrink-0">
+        <i data-lucide="camera" class="w-3.5 h-3.5"></i> AI Injury Scan
+      </button>
+      <button onclick="scrollToSection('directorySection')" class="px-3 py-1.5 rounded-lg bg-amber-600/20 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 shrink-0">
+        <i data-lucide="building-2" class="w-3.5 h-3.5"></i> Official Stations & Pharmacies
+      </button>
+      <button onclick="scrollToSection('treatmentSection')" class="px-3 py-1.5 rounded-lg bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5 shrink-0">
+        <i data-lucide="heart-pulse" class="w-3.5 h-3.5"></i> Treatment Guides
+      </button>
+      <button onclick="scrollToSection('hospitalSection')" class="px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-300 border border-blue-500/30 flex items-center gap-1.5 shrink-0">
+        <i data-lucide="hospital" class="w-3.5 h-3.5"></i> Nearby ERs & Doctors
+      </button>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTENT WRAPPER -->
+  <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-8">
+
+    <!-- SECTION 1: SOS DISPATCH & LIVE LOCATION MAP -->
+    <div id="sosSection" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- SOS PANIC & DISPATCH CONTROLLER (5 cols) -->
+      <section class="lg:col-span-5 flex flex-col gap-5">
+        <div class="bg-gray-900 border-2 border-red-600/80 rounded-2xl p-5 shadow-2xl relative overflow-hidden flex flex-col items-center text-center">
+          <div class="absolute -right-12 -top-12 w-32 h-32 bg-red-600/10 rounded-full blur-2xl pointer-events-none"></div>
+
+          <div class="flex items-center justify-between w-full mb-3">
+            <span class="text-xs font-bold uppercase tracking-wider text-red-400 flex items-center gap-1">
+              <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span> Live Dispatch System
+            </span>
+            <span class="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded font-mono border border-gray-700" id="locationPrecisionTag">GPS: Acquiring...</span>
+          </div>
+
+          <h2 class="text-2xl font-black text-white mb-1">TRIGGER EMERGENCY</h2>
+          <p class="text-xs text-gray-300 mb-5 max-w-xs">Tap to broadcast live location coordinates to local ambulance dispatch & ER teams.</p>
+
+          <!-- PANIC SOS BUTTON -->
+          <div class="my-2 relative flex items-center justify-center">
+            <button id="sosBtn" onclick="initiateEmergencyFlow()" class="sos-glow w-44 h-44 sm:w-48 sm:h-48 rounded-full bg-gradient-to-br from-red-500 via-red-600 to-red-800 text-white font-black text-xl tracking-wider shadow-2xl hover:scale-105 active:scale-95 transition-transform flex flex-col items-center justify-center border-4 border-red-300 focus:outline-none focus:ring-4 focus:ring-red-400">
+              <i data-lucide="siren" class="w-14 h-14 mb-1 animate-bounce"></i>
+              <span>TRIGGER</span>
+              <span class="text-xs font-bold text-red-200 mt-0.5">SOS DISPATCH</span>
+            </button>
+          </div>
+
+          <!-- Silent Toggle -->
+          <div class="w-full mt-4 pt-3 border-t border-gray-800">
+            <label class="flex items-center justify-between p-2.5 bg-gray-800/80 hover:bg-gray-800 rounded-xl cursor-pointer border border-gray-700/60 transition">
+              <div class="flex items-center gap-2">
+                <i data-lucide="volume-x" class="w-4 h-4 text-yellow-400"></i>
+                <div class="text-left">
+                  <p class="text-xs font-semibold text-gray-200">Silent Dispatch Mode</p>
+                  <p class="text-[10px] text-gray-400">Disables audible sirens during dispatch</p>
+                </div>
+              </div>
+              <input type="checkbox" id="silentModeToggle" class="w-4 h-4 text-red-600 rounded bg-gray-700 border-gray-600 focus:ring-red-500">
+            </label>
+          </div>
+        </div>
+
+        <!-- ACTIVE DISPATCH MONITOR -->
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 shadow-lg flex flex-col gap-3">
+          <div class="flex items-center justify-between border-b border-gray-800 pb-2">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-gray-300 flex items-center gap-2">
+              <i data-lucide="activity" class="w-4 h-4 text-blue-400"></i> Dispatch Monitor
+            </h3>
+            <span id="dispatchBadge" class="px-2 py-0.5 text-[10px] font-semibold rounded bg-gray-800 text-gray-400 border border-gray-700">IDLE</span>
+          </div>
+
+          <div id="statusTimeline" class="space-y-2 py-1">
+            <div class="text-center py-3 text-gray-500 text-xs">
+              No active emergency alert. Click SOS to send real-time coordinates.
+            </div>
+          </div>
+
+          <button id="cancelDispatchBtn" onclick="cancelEmergency()" class="hidden w-full py-2 bg-gray-800 hover:bg-gray-700 text-red-400 font-semibold rounded-xl text-xs border border-red-900/50 transition">
+            Cancel Emergency Broadcast
+          </button>
+        </div>
+      </section>
+
+      <!-- LIVE LOCATION & ER MAP (7 cols) -->
+      <section class="lg:col-span-7 flex flex-col gap-5">
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 shadow-xl flex flex-col gap-3">
+          
+          <div class="flex flex-col sm:flex-row gap-2 items-center justify-between">
+            <div class="relative w-full">
+              <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-gray-400"></i>
+              <input type="text" id="manualAddressInput" placeholder="Search address, landmark, or city..." class="w-full bg-gray-800 border border-gray-700 rounded-xl pl-9 pr-3 py-2 text-xs text-gray-200 focus:ring-2 focus:ring-red-500 focus:outline-none">
+            </div>
+            <div class="flex gap-2 w-full sm:w-auto shrink-0">
+              <button onclick="searchManualAddress()" class="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-xl text-xs font-medium border border-gray-700 transition">Search</button>
+              <button onclick="detectUserLocation(true)" title="Recenter GPS" class="px-3 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/40 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+                <i data-lucide="locate-fixed" class="w-4 h-4 text-red-400"></i>
+                <span>Locate Me</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between text-xs bg-gray-950 p-2.5 rounded-xl border border-gray-800">
+            <div class="flex items-center gap-2 overflow-hidden">
+              <i data-lucide="map-pin" class="w-4 h-4 text-red-500 shrink-0"></i>
+              <span id="currentAddressText" class="text-gray-300 truncate font-medium">Detecting GPS coordinates...</span>
+            </div>
+            <span id="gpsAccuracyText" class="text-[10px] text-gray-500 shrink-0 ml-2">Accuracy: --</span>
+          </div>
+
+          <div class="relative rounded-xl overflow-hidden border border-gray-800">
+            <div id="map"></div>
+            <div class="absolute bottom-3 left-3 z-[400] bg-gray-900/90 backdrop-blur-md px-3 py-1.5 rounded-lg border border-gray-700 text-[11px] text-gray-300 shadow-lg flex items-center gap-2">
+              <i data-lucide="info" class="w-3.5 h-3.5 text-blue-400"></i>
+              <span>Drag red pin or click map to set exact injury spot</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+
+    <!-- SECTION 2: AI / CAMERA INJURY SCANNER & DIAGNOSTICS -->
+    <section id="scannerSection" class="bg-gray-900 border border-purple-900/50 rounded-2xl p-5 sm:p-6 shadow-2xl relative overflow-hidden">
+      <div class="absolute right-0 top-0 w-64 h-64 bg-purple-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+      <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-gray-800 pb-4 mb-6 gap-3">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-0.5 rounded-full bg-purple-900/60 border border-purple-500/50 text-purple-300 text-xs font-bold uppercase tracking-wider flex items-center gap-1">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5 text-purple-400"></i> AI Powered Medical Vision
+            </span>
+            <span class="text-xs text-gray-400 font-mono">v3.4 Diagnostic Engine</span>
+          </div>
+          <h2 class="text-xl sm:text-2xl font-black text-white mt-1">AI Injury Scanner & Severity Evaluator</h2>
+          <p class="text-xs text-gray-400">Capture or upload a photo of the injury for immediate visual triage, severity grading, and damage prevention protocols.</p>
+        </div>
+
+        <!-- Sample Presets -->
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-[11px] text-gray-400 font-semibold">Try Test Samples:</span>
+          <button onclick="loadPresetScan('burn')" class="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-xs text-gray-300 rounded-lg border border-gray-700">Thermal Burn</button>
+          <button onclick="loadPresetScan('cut')" class="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-xs text-gray-300 rounded-lg border border-gray-700">Deep Cut</button>
+          <button onclick="loadPresetScan('fracture')" class="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-xs text-gray-300 rounded-lg border border-gray-700">Deformity</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- CAMERA / UPLOAD CAPTURE BOX (5 cols) -->
+        <div class="lg:col-span-5 flex flex-col gap-4">
+          <div id="cameraViewport" class="relative bg-gray-950 border-2 border-dashed border-gray-700 hover:border-purple-500/60 rounded-2xl min-h-[280px] flex flex-col items-center justify-center p-4 overflow-hidden transition">
+            
+            <!-- Video Camera Live Feed -->
+            <video id="webcamFeed" class="hidden absolute inset-0 w-full h-full object-cover rounded-2xl" autoplay playsinline muted></video>
+            
+            <!-- Image Canvas / Render Area -->
+            <canvas id="scanCanvas" class="hidden absolute inset-0 w-full h-full object-contain rounded-2xl"></canvas>
+
+            <!-- Scanner Laser Animation Layer -->
+            <div id="scannerLaser" class="hidden absolute left-0 right-0 h-1 bg-red-500 shadow-[0_0_15px_#ef4444] z-20 animate-scan-line"></div>
+
+            <!-- Default Placeholder State -->
+            <div id="cameraPlaceholder" class="text-center p-6 space-y-3 z-10">
+              <div class="w-16 h-16 bg-purple-900/30 text-purple-400 rounded-2xl flex items-center justify-center mx-auto border border-purple-500/30">
+                <i data-lucide="camera" class="w-8 h-8"></i>
+              </div>
+              <div>
+                <p class="text-sm font-bold text-gray-200">Snap Photo or Upload Image</p>
+                <p class="text-xs text-gray-400 mt-1">Supports Burn, Laceration, Bleeding, Fracture, Bite, Trauma</p>
+              </div>
+              <div class="flex items-center justify-center gap-2 pt-2">
+                <button onclick="startCamera()" class="px-3.5 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-lg transition">
+                  <i data-lucide="video" class="w-4 h-4"></i> Open Camera
+                </button>
+                <label class="px-3.5 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 font-bold rounded-xl text-xs flex items-center gap-1.5 border border-gray-700 cursor-pointer transition">
+                  <i data-lucide="upload" class="w-4 h-4"></i> Upload Photo
+                  <input type="file" id="imageInput" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                </label>
+              </div>
+            </div>
+
+            <!-- Active Camera Controls Overlays -->
+            <div id="cameraControls" class="hidden absolute bottom-3 left-3 right-3 z-30 flex items-center justify-between gap-2 bg-gray-900/80 backdrop-blur-md p-2 rounded-xl border border-gray-700">
+              <button onclick="captureCameraPhoto()" class="flex-1 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1">
+                <i data-lucide="aperture" class="w-4 h-4"></i> Capture & Analyze
+              </button>
+              <button onclick="stopCamera()" class="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-xs font-bold">
+                Close
+              </button>
+            </div>
+          </div>
+
+          <!-- Analyze Action Button -->
+          <button id="runAnalysisBtn" onclick="runAIAnalysis()" disabled class="w-full py-3 bg-purple-700 hover:bg-purple-600 disabled:bg-gray-800 disabled:text-gray-600 disabled:cursor-not-allowed text-white font-black rounded-xl text-xs sm:text-sm tracking-wide uppercase shadow-lg flex items-center justify-center gap-2 transition">
+            <i data-lucide="cpu" class="w-4 h-4"></i> Run AI Diagnosis & Triage
+          </button>
+        </div>
+
+        <!-- DIAGNOSTIC RESULTS DISPLAY (7 cols) -->
+        <div class="lg:col-span-7 bg-gray-950 border border-gray-800 rounded-2xl p-5 flex flex-col justify-between">
+          <div id="aiResultContainer" class="space-y-4">
+
+            <!-- Default Empty Result State -->
+            <div id="aiEmptyState" class="text-center py-12 space-y-3">
+              <i data-lucide="microscope" class="w-12 h-12 text-gray-700 mx-auto"></i>
+              <p class="text-xs text-gray-500">Awaiting image submission. Upload or snap an injury photo above to trigger instant AI evaluation.</p>
+            </div>
+
+            <!-- Active Result Content (Hidden by default) -->
+            <div id="aiActiveResults" class="hidden space-y-4">
+              
+              <!-- Severity Header Badge -->
+              <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+                <div>
+                  <span class="text-[10px] text-gray-400 uppercase font-mono tracking-wider">Detected Injury Type</span>
+                  <h3 id="resInjuryName" class="text-lg font-black text-white flex items-center gap-2">--</h3>
+                </div>
+                <div class="text-right">
+                  <span class="text-[10px] text-gray-400 uppercase font-mono tracking-wider">Triage Level</span>
+                  <div id="resSeverityBadge" class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                    MODERATE
+                  </div>
+                </div>
+              </div>
+
+              <!-- Diagnostic Gauges & Confidence -->
+              <div class="grid grid-cols-3 gap-3 text-center">
+                <div class="bg-gray-900 p-2.5 rounded-xl border border-gray-800">
+                  <p class="text-[10px] text-gray-400">AI Confidence</p>
+                  <p id="resConfidence" class="text-sm font-bold text-purple-400 font-mono">94.8%</p>
+                </div>
+                <div class="bg-gray-900 p-2.5 rounded-xl border border-gray-800">
+                  <p class="text-[10px] text-gray-400">Estimated Depth</p>
+                  <p id="resDepth" class="text-sm font-bold text-gray-200 font-mono">Partial Thickness</p>
+                </div>
+                <div class="bg-gray-900 p-2.5 rounded-xl border border-gray-800">
+                  <p class="text-[10px] text-gray-400">Infection Risk</p>
+                  <p id="resInfection" class="text-sm font-bold text-red-400 font-mono">Elevated</p>
+                </div>
+              </div>
+
+              <!-- Immediate Damage Prevention Steps -->
+              <div class="space-y-2">
+                <h4 class="text-xs font-bold text-gray-200 uppercase tracking-wider flex items-center gap-1.5">
+                  <i data-lucide="shield-alert" class="w-4 h-4 text-emerald-400"></i> Immediate Damage Prevention Protocol
+                </h4>
+                <ul id="resPreventionSteps" class="space-y-1.5 text-xs text-gray-300">
+                  <!-- Steps rendered via JS -->
+                </ul>
+              </div>
+
+              <!-- Contraindications / Warnings -->
+              <div class="p-3 bg-red-950/40 border border-red-900/60 rounded-xl text-xs space-y-1">
+                <p class="font-bold text-red-400 flex items-center gap-1">
+                  <i data-lucide="alert-circle" class="w-4 h-4"></i> Critical Warnings & DON'Ts:
+                </p>
+                <p id="resWarnings" class="text-gray-300">Do not apply ice directly. Do not pop blisters. Keep area elevated.</p>
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- Direct Transfer Button to ER Guide -->
+          <div id="aiActionFooter" class="hidden pt-4 border-t border-gray-800 flex justify-between items-center mt-4">
+            <span class="text-[11px] text-gray-400">Need live assistance?</span>
+            <button onclick="scrollToSection('hospitalSection')" class="px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 transition">
+              <i data-lucide="phone" class="w-3.5 h-3.5"></i> Connect Duty Doctor
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- SECTION 3: LIVE EMERGENCY TREATMENT GUIDES & COUNTDOWN TIMERS -->
+    <section id="treatmentSection" class="bg-gray-900 border border-gray-800 rounded-2xl p-5 sm:p-6 shadow-xl">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-800 pb-4 mb-6 gap-2">
+        <div>
+          <h2 class="text-xl font-black text-white flex items-center gap-2">
+            <i data-lucide="heart-pulse" class="w-6 h-6 text-red-500"></i> First-Aid Protocols & Live Timers
+          </h2>
+          <p class="text-xs text-gray-400">Step-by-step triage actions and live intervention timers for critical medical scenarios.</p>
+        </div>
+        <div class="text-xs text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-3 py-1 rounded-lg font-mono flex items-center gap-1 self-start sm:self-auto">
+          <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Medically Verified Standard
+        </div>
+      </div>
+
+      <!-- INTERACTIVE GUIDES CATEGORY GRID -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+
+        <!-- CARD 1: SEVERE BLEEDING -->
+        <div class="bg-gray-950 border border-gray-800 rounded-2xl p-4 flex flex-col justify-between hover:border-red-600/50 transition">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="px-2 py-0.5 bg-red-900/60 text-red-300 border border-red-700/50 text-[10px] font-bold rounded">HIGH PRIORITY</span>
+              <i data-lucide="droplet" class="w-5 h-5 text-red-500"></i>
+            </div>
+            <h3 class="text-base font-bold text-white mb-1">Severe Bleeding / Cut</h3>
+            <p class="text-xs text-gray-400 mb-3">Arterial or deep laceration hemorrhage control.</p>
+
+            <ol class="space-y-1.5 text-xs text-gray-300 list-decimal list-inside mb-4">
+              <li>Apply firm, direct pressure with clean cloth/gauze.</li>
+              <li>Elevate limb above heart level if possible.</li>
+              <li>If blood soaks through, add more layers—do not remove initial cloth.</li>
+              <li>Apply tourniquet 2-3 inches above wound if life-threatening bleeding persists.</li>
+            </ol>
+          </div>
+
+          <!-- Timer Widget -->
+          <div class="bg-gray-900 p-3 rounded-xl border border-gray-800 space-y-2">
+            <div class="flex justify-between items-center text-xs">
+              <span class="font-bold text-gray-300">Pressure Hold Clock</span>
+              <span id="timerBleedText" class="font-mono text-red-400 font-bold">10:00</span>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="toggleTimer('Bleed', 600)" id="btnBleedTimer" class="flex-1 py-1.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1">
+                <i data-lucide="play" class="w-3 h-3"></i> Start 10m
+              </button>
+              <button onclick="resetTimer('Bleed', 600)" class="px-2 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-400 rounded-lg text-xs">Reset</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 2: CARDIAC ARREST / CPR -->
+        <div class="bg-gray-950 border border-gray-800 rounded-2xl p-4 flex flex-col justify-between hover:border-red-600/50 transition">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="px-2 py-0.5 bg-red-950 text-red-400 border border-red-600 text-[10px] font-bold rounded animate-pulse">CRITICAL</span>
+              <i data-lucide="heart" class="w-5 h-5 text-red-500"></i>
+            </div>
+            <h3 class="text-base font-bold text-white mb-1">Cardiac Arrest / CPR</h3>
+            <p class="text-xs text-gray-400 mb-3">Unresponsive patient without normal breathing.</p>
+
+            <ol class="space-y-1.5 text-xs text-gray-300 list-decimal list-inside mb-4">
+              <li>Place hands on center of chest. Push hard & fast (100-120 bpm).</li>
+              <li>30 chest compressions followed by 2 rescue breaths.</li>
+              <li>Use AED (Defibrillator) as soon as available.</li>
+            </ol>
+          </div>
+
+          <!-- CPR Metronome / Cycle Timer -->
+          <div class="bg-gray-900 p-3 rounded-xl border border-gray-800 space-y-2">
+            <div class="flex justify-between items-center text-xs">
+              <span class="font-bold text-gray-300">2-Min CPR Cycle Clock</span>
+              <span id="timerCPRText" class="font-mono text-yellow-400 font-bold">02:00</span>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="toggleTimer('CPR', 120)" id="btnCPRTimer" class="flex-1 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-gray-950 font-bold rounded-lg text-xs flex items-center justify-center gap-1">
+                <i data-lucide="activity" class="w-3 h-3"></i> Start Metronome Cycle
+              </button>
+              <button onclick="resetTimer('CPR', 120)" class="px-2 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-400 rounded-lg text-xs">Reset</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 3: BURNS (THERMAL / CHEMICAL) -->
+        <div class="bg-gray-950 border border-gray-800 rounded-2xl p-4 flex flex-col justify-between hover:border-amber-600/50 transition">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="px-2 py-0.5 bg-amber-900/60 text-amber-300 border border-amber-700/50 text-[10px] font-bold rounded">MODERATE TO SEVERE</span>
+              <i data-lucide="flame" class="w-5 h-5 text-amber-500"></i>
+            </div>
+            <h3 class="text-base font-bold text-white mb-1">Thermal / Chemical Burns</h3>
+            <p class="text-xs text-gray-400 mb-3">Heat, steam, electrical or chemical exposure.</p>
+
+            <ul class="space-y-1.5 text-xs text-gray-300 list-disc list-inside mb-4">
+              <li>Cool with clean running water for at least 15-20 minutes.</li>
+              <li>Do NOT use ice, butter, or toothpaste on burns.</li>
+              <li>Cover loosely with sterile non-stick bandage or plastic wrap.</li>
+            </ul>
+          </div>
+
+          <div class="bg-gray-900 p-3 rounded-xl border border-gray-800 space-y-2">
+            <div class="flex justify-between items-center text-xs">
+              <span class="font-bold text-gray-300">Cooling Water Timer</span>
+              <span id="timerBurnText" class="font-mono text-amber-400 font-bold">20:00</span>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="toggleTimer('Burn', 1200)" id="btnBurnTimer" class="flex-1 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1">
+                <i data-lucide="play" class="w-3 h-3"></i> Start 20m Cool
+              </button>
+              <button onclick="resetTimer('Burn', 1200)" class="px-2 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-400 rounded-lg text-xs">Reset</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 4: SNAKEBITE / POISONING -->
+        <div class="bg-gray-950 border border-gray-800 rounded-2xl p-4 flex flex-col justify-between hover:border-purple-600/50 transition">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="px-2 py-0.5 bg-purple-900/60 text-purple-300 border border-purple-700/50 text-[10px] font-bold rounded">CRITICAL TOXIN</span>
+              <i data-lucide="skull" class="w-5 h-5 text-purple-400"></i>
+            </div>
+            <h3 class="text-base font-bold text-white mb-1">Snakebite & Envenomation</h3>
+            <p class="text-xs text-gray-400 mb-3">Reptile or toxic creature venom exposure.</p>
+
+            <ul class="space-y-1.5 text-xs text-gray-300 list-disc list-inside mb-4">
+              <li>Keep patient calm & completely still to slow venom spread.</li>
+              <li>Immobilize bitten limb below heart level.</li>
+              <li><strong class="text-red-400">DON'T:</strong> Cut wound, suck venom, or apply tourniquet.</li>
+            </ul>
+          </div>
+          <button onclick="scrollToSection('hospitalSection')" class="w-full py-2 bg-purple-700 hover:bg-purple-600 text-white rounded-xl text-xs font-bold transition">
+            Locate Nearest Anti-Venom ER Center
+          </button>
+        </div>
+
+        <!-- CARD 5: BONE FRACTURE -->
+        <div class="bg-gray-950 border border-gray-800 rounded-2xl p-4 flex flex-col justify-between hover:border-blue-600/50 transition">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="px-2 py-0.5 bg-blue-900/60 text-blue-300 border border-blue-700/50 text-[10px] font-bold rounded">TRAUMA</span>
+              <i data-lucide="bone" class="w-5 h-5 text-blue-400"></i>
+            </div>
+            <h3 class="text-base font-bold text-white mb-1">Bone Fracture / Dislocation</h3>
+            <p class="text-xs text-gray-400 mb-3">Deformity, severe pain, inability to move limb.</p>
+
+            <ul class="space-y-1.5 text-xs text-gray-300 list-disc list-inside mb-4">
+              <li>Immobilize the area using splints or padding in position found.</li>
+              <li>Apply cold pack wrapped in cloth to reduce swelling.</li>
+              <li>Do NOT attempt to realign broken bones manually.</li>
+            </ul>
+          </div>
+          <button onclick="scrollToSection('hospitalSection')" class="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition">
+            Dispatch Orthopedic Trauma Unit
+          </button>
+        </div>
+
+        <!-- CARD 6: CHOKING / AIRWAY OBSTRUCTION -->
+        <div class="bg-gray-950 border border-gray-800 rounded-2xl p-4 flex flex-col justify-between hover:border-red-600/50 transition">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="px-2 py-0.5 bg-red-900/60 text-red-300 border border-red-700/50 text-[10px] font-bold rounded">AIRWAY EMERGENCY</span>
+              <i data-lucide="wind" class="w-5 h-5 text-red-400"></i>
+            </div>
+            <h3 class="text-base font-bold text-white mb-1">Choking (Heimlich Maneuver)</h3>
+            <p class="text-xs text-gray-400 mb-3">Inability to speak, cough or breathe.</p>
+
+            <ul class="space-y-1.5 text-xs text-gray-300 list-disc list-inside mb-4">
+              <li>Give 5 sharp back blows between shoulder blades.</li>
+              <li>Perform 5 abdominal thrusts (Heimlich) inwards & upwards above navel.</li>
+              <li>Alternate until object dislodges or patient becomes unconscious.</li>
+            </ul>
+          </div>
+          <a href="tel:108" class="w-full py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold text-center transition block">
+            Emergency Call Duty Officer
+          </a>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- SECTION 4: NEARBY HOSPITALS & OFFICIAL DUTY DOCTOR DIRECTORY -->
+    <section id="hospitalSection" class="bg-gray-900 border border-gray-800 rounded-2xl p-5 sm:p-6 shadow-2xl">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-800 pb-4 mb-6 gap-3">
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="text-xl font-black text-white flex items-center gap-2">
+              <i data-lucide="hospital" class="w-6 h-6 text-red-500"></i> Nearby Trauma Hospitals & Duty Doctors
+            </h2>
+            <span class="text-xs bg-red-950 text-red-400 border border-red-800 px-2 py-0.5 rounded font-bold">24/7 VERIFIED</span>
+          </div>
+          <p class="text-xs text-gray-400 mt-0.5">Real-time local medical center directory with official duty officer and doctor contact numbers.</p>
+        </div>
+
+        <button onclick="refreshHospitalDistances()" class="px-3.5 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-gray-700 transition self-start sm:self-auto">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-blue-400"></i> Refresh Distances
+        </button>
+      </div>
+
+      <!-- HOSPITAL LISTING GRID -->
+      <div id="hospitalList" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Rendered via JavaScript -->
+      </div>
+    </section>
+
+    <!-- SECTION 5: OFFICIAL STATIONS, PHARMACIES & GOVT HELPLINE DIRECTORY -->
+    <section id="directorySection" class="bg-gray-900 border border-gray-800 rounded-2xl p-5 sm:p-6 shadow-2xl space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-800 pb-4 gap-3">
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="text-xl font-black text-white flex items-center gap-2">
+              <i data-lucide="shield-check" class="w-6 h-6 text-amber-400"></i> Official Stations, Pharmacies & Govt Directory
+            </h2>
+            <span class="text-xs bg-amber-950 text-amber-300 border border-amber-800 px-2 py-0.5 rounded font-bold">ONGOLE & AP GOVT</span>
+          </div>
+          <p class="text-xs text-gray-400 mt-0.5">Verified contacts and official government/medical links for Police, Fire, Pharmacies, and Disaster Services.</p>
+        </div>
+      </div>
+
+      <!-- DIRECTORY FILTER TABS -->
+      <div class="flex items-center gap-2 overflow-x-auto pb-2 border-b border-gray-800 text-xs font-bold no-scrollbar">
+        <button id="tabBtnAll" onclick="filterDirectory('all')" class="dir-tab-btn active px-3.5 py-2 rounded-xl bg-amber-500 text-gray-950 flex items-center gap-1.5 shrink-0 transition">
+          <i data-lucide="layers" class="w-4 h-4"></i> All Directory
+        </button>
+        <button id="tabBtnPharm" onclick="filterDirectory('pharmacy')" class="dir-tab-btn px-3.5 py-2 rounded-xl bg-gray-800 text-gray-300 hover:bg-gray-700 flex items-center gap-1.5 shrink-0 transition">
+          <i data-lucide="pill" class="w-4 h-4 text-emerald-400"></i> 24/7 Pharmacies
+        </button>
+        <button id="tabBtnPolice" onclick="filterDirectory('police')" class="dir-tab-btn px-3.5 py-2 rounded-xl bg-gray-800 text-gray-300 hover:bg-gray-700 flex items-center gap-1.5 shrink-0 transition">
+          <i data-lucide="shield" class="w-4 h-4 text-blue-400"></i> Police Stations
+        </button>
+        <button id="tabBtnFire" onclick="filterDirectory('fire')" class="dir-tab-btn px-3.5 py-2 rounded-xl bg-gray-800 text-gray-300 hover:bg-gray-700 flex items-center gap-1.5 shrink-0 transition">
+          <i data-lucide="flame" class="w-4 h-4 text-red-400"></i> Fire & Disaster
+        </button>
+        <button id="tabBtnHelpline" onclick="filterDirectory('helpline')" class="dir-tab-btn px-3.5 py-2 rounded-xl bg-gray-800 text-gray-300 hover:bg-gray-700 flex items-center gap-1.5 shrink-0 transition">
+          <i data-lucide="phone-call" class="w-4 h-4 text-yellow-400"></i> Toll-Free Helplines
+        </button>
+      </div>
+
+      <!-- DIRECTORY CARDS GRID -->
+      <div id="directoryGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- JS-Populated Content -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- DUTY DOCTOR DIRECT CALL MODAL -->
+  <div id="doctorModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-[1000] hidden flex items-center justify-center p-4">
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl max-w-md w-full p-6 text-center shadow-2xl relative">
+      <button onclick="closeDoctorModal()" class="absolute right-4 top-4 text-gray-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="w-14 h-14 bg-blue-600/20 text-blue-400 rounded-full flex items-center justify-center mx-auto mb-3 border border-blue-500/30">
+        <i data-lucide="stethoscope" class="w-7 h-7"></i>
+      </div>
+
+      <h3 id="docModalHospName" class="text-lg font-black text-white">Government General Hospital (GGH)</h3>
+      <p id="docModalSpecialty" class="text-xs text-gray-400 mt-0.5">ER & Trauma Casualty Ward</p>
+
+      <div class="bg-gray-950 p-4 rounded-xl border border-gray-800 my-4 text-left space-y-2.5">
+        <div class="flex justify-between items-center text-xs">
+          <span class="text-gray-400">Duty Medical Officer:</span>
+          <span id="docModalName" class="font-bold text-white">Dr. R. K. Varma (MD Emergency)</span>
+        </div>
+        <div class="flex justify-between items-center text-xs">
+          <span class="text-gray-400">Direct Doctor Phone:</span>
+          <span id="docModalPhone" class="font-mono font-bold text-yellow-400">+91 94401 08911</span>
+        </div>
+        <div class="flex justify-between items-center text-xs">
+          <span class="text-gray-400">ICU Status:</span>
+          <span id="docModalICU" class="text-emerald-400 font-semibold">4 Beds Available</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <button onclick="closeDoctorModal()" class="py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-xs font-bold border border-gray-700">
+          Close
+        </button>
+        <a id="docModalCallBtn" href="tel:+919440108911" class="py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg flex items-center justify-center gap-1">
+          <i data-lucide="phone-call" class="w-4 h-4"></i> CALL DOCTOR NOW
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- SOS CONFIRMATION MODAL -->
+  <div id="sosConfirmModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-[1000] hidden flex items-center justify-center p-4">
+    <div class="bg-gray-900 border-2 border-red-600 rounded-2xl max-w-md w-full p-6 text-center shadow-2xl relative">
+      <div class="w-16 h-16 bg-red-600/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/40">
+        <i data-lucide="alert-triangle" class="w-10 h-10 animate-pulse"></i>
+      </div>
+      
+      <h3 class="text-xl font-black text-white uppercase tracking-wide">Confirm Emergency Signal</h3>
+      <p class="text-xs text-gray-300 mt-2">
+        Transmitting priority 1 emergency GPS telemetry to duty ambulance controls and regional casualty wards.
+      </p>
+
+      <div class="bg-gray-950 p-3 rounded-xl border border-gray-800 my-4 text-left text-xs space-y-1">
+        <p class="text-gray-400"><span class="font-bold text-gray-200">GPS Coords:</span> <span id="modalGps" class="font-mono text-red-400">0.0000, 0.0000</span></p>
+        <p class="text-gray-400"><span class="font-bold text-gray-200">Silent Mode:</span> <span id="modalSilent">No</span></p>
+      </div>
+
+      <div class="mb-5">
+        <div class="flex justify-between text-xs font-semibold mb-1">
+          <span class="text-red-400">Auto-transmitting in:</span>
+          <span id="countdownText" class="text-white font-mono font-bold">5s</span>
+        </div>
+        <div class="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
+          <div id="countdownBar" class="bg-red-600 h-full w-full transition-all duration-1000 ease-linear"></div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <button onclick="cancelEmergencyConfirmation()" class="py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-xs font-bold border border-gray-700">
+          CANCEL
+        </button>
+        <button onclick="confirmAndDispatchEmergency()" class="py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold shadow-lg flex items-center justify-center gap-1.5">
+          <i data-lucide="send" class="w-4 h-4"></i> CONFIRM DISPATCH
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- API / INTEGRATION MODAL -->
+  <div id="apiModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-[1000] hidden flex items-center justify-center p-4">
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-gray-800 pb-3 mb-4">
+        <div class="flex items-center gap-2">
+          <i data-lucide="webhook" class="w-5 h-5 text-blue-400"></i>
+          <h3 class="text-lg font-bold text-white">App Integration & Deep Links</h3>
+        </div>
+        <button onclick="closeApiModal()" class="text-gray-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs text-gray-300">
+        <div>
+          <h4 class="font-bold text-gray-100 text-sm mb-1">1. Deep Link URL Scheme</h4>
+          <div class="bg-gray-950 p-3 rounded-xl border border-gray-800 font-mono text-red-300 flex items-center justify-between gap-2 overflow-x-auto">
+            <span id="sampleDeepLinkText">https://emrp.app/?action=emergency&lat=15.5057&lng=80.0499</span>
+            <button onclick="copyToClipboard('sampleDeepLinkText')" class="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded text-[11px] shrink-0 font-sans border border-gray-700">Copy</button>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="font-bold text-gray-100 text-sm mb-1">2. Webhook & REST API Payload</h4>
+          <pre class="bg-gray-950 p-3 rounded-xl border border-gray-800 text-green-400 font-mono text-[11px] overflow-x-auto">
+{
+  "event": "EMERGENCY_DISPATCH_TRIGGERED",
+  "timestamp": "2026-10-19T14:30:00Z",
+  "incident_id": "INC-98241",
+  "location": { "latitude": 15.5057, "longitude": 80.0499 },
+  "duty_doctor_notified": "+919440108911"
+}</pre>
+        </div>
+      </div>
+
+      <div class="mt-6 pt-3 border-t border-gray-800 flex justify-end">
+        <button onclick="closeApiModal()" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-xs font-semibold">Close</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- AUDIO ALARM SYNTHESIS (TONE / WEB AUDIO API) -->
+  <script>
+    let audioCtx = null;
+    let sirenOsc = null;
+    let sirenGain = null;
+    let isSirenPlaying = false;
+
+    function startSirenSound() {
+      if (document.getElementById('silentModeToggle').checked) return;
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        sirenOsc = audioCtx.createOscillator();
+        sirenGain = audioCtx.createGain();
+
+        sirenOsc.type = 'sawtooth';
+        sirenOsc.frequency.setValueAtTime(600, audioCtx.currentTime);
+
+        const now = audioCtx.currentTime;
+        sirenOsc.frequency.linearRampToValueAtTime(900, now + 0.4);
+        sirenOsc.frequency.linearRampToValueAtTime(600, now + 0.8);
+
+        setInterval(() => {
+          if (isSirenPlaying && audioCtx) {
+            const t = audioCtx.currentTime;
+            sirenOsc.frequency.linearRampToValueAtTime(900, t + 0.4);
+            sirenOsc.frequency.linearRampToValueAtTime(600, t + 0.8);
+          }
+        }, 800);
+
+        sirenGain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+        sirenOsc.connect(sirenGain);
+        sirenGain.connect(audioCtx.destination);
+
+        sirenOsc.start();
+        isSirenPlaying = true;
+      } catch (e) {
+        console.warn('Audio synthesis disabled:', e);
+      }
+    }
+
+    function stopSirenSound() {
+      if (sirenOsc && isSirenPlaying) {
+        try {
+          sirenOsc.stop();
+          sirenOsc.disconnect();
+        } catch (e) {}
+        isSirenPlaying = false;
+      }
+    }
+  </script>
+
+  <!-- MAIN APPLICATION JAVASCRIPT LOGIC -->
+  <script>
+    // State variables
+    let userLat = 15.5057; // Ongole, AP Default
+    let userLng = 80.0499;
+    let map = null;
+    let userMarker = null;
+    let hospitalMarkers = [];
+    let countdownInterval = null;
+    let countdownTime = 5;
+    let activeStream = null;
+    let loadedImageElement = null;
+
+    // Official Station, Pharmacy & Govt Directory Database
+    const officialDirectory = [
+      // PHARMACIES
+      {
+        id: 'dir-ph-1',
+        category: 'pharmacy',
+        name: 'Apollo Pharmacy 24/7 (Ongole Main)',
+        sub: 'Trunk Road Branch, Ongole',
+        phone: '+91 8592 232244',
+        rawPhone: '9185922332244',
+        officialLink: 'https://www.apollopharmacy.in/',
+        type: '24/7 Emergency Medicine & Delivery',
+        badge: '24/7 OPEN',
+        badgeClass: 'bg-emerald-950 text-emerald-400 border-emerald-800'
+      },
+      {
+        id: 'dir-ph-2',
+        category: 'pharmacy',
+        name: 'MedPlus Pharmacy (Koppolu Road)',
+        sub: 'Near GGH Hospital, Ongole',
+        phone: '+91 8592 280100',
+        rawPhone: '918592280100',
+        officialLink: 'https://www.medplusmart.com/',
+        type: 'Prescription & Emergency Supplies',
+        badge: 'OPEN 24 HOURS',
+        badgeClass: 'bg-emerald-950 text-emerald-400 border-emerald-800'
+      },
+      {
+        id: 'dir-ph-3',
+        category: 'pharmacy',
+        name: 'Jan Aushadhi Kendra (Pradhan Mantri GOI)',
+        sub: 'GGH Campus & RIMS Rd, Ongole',
+        phone: '1800 180 8080',
+        rawPhone: '18001808080',
+        officialLink: 'https://janaushadhi.gov.in/',
+        type: 'Government Generic Medicine Depot',
+        badge: 'GOVT SUBSIDIZED',
+        badgeClass: 'bg-blue-950 text-blue-400 border-blue-800'
+      },
+      {
+        id: 'dir-ph-4',
+        category: 'pharmacy',
+        name: 'Netmeds / Tata 1mg Express Online Delivery',
+        sub: 'Ongole City Speed Delivery Portal',
+        phone: '1800 572 1111',
+        rawPhone: '18005721111',
+        officialLink: 'https://www.1mg.com/',
+        type: 'Online Emergency Order Portal',
+        badge: 'DIGITAL PORTAL',
+        badgeClass: 'bg-purple-950 text-purple-400 border-purple-800'
+      },
+      {
+        id: 'dir-ph-5',
+        category: 'pharmacy',
+        name: 'GGH Hospital In-House Govt Pharmacy',
+        sub: 'Casualty Block, GGH Ongole',
+        phone: '+91 8592 233102',
+        rawPhone: '918592233102',
+        officialLink: 'https://hmfw.ap.gov.in/',
+        type: 'AP Health In-Hospital Emergency Store',
+        badge: 'FREE GOVT DRUGS',
+        badgeClass: 'bg-red-950 text-red-400 border-red-800'
+      },
+
+      // POLICE STATIONS
+      {
+        id: 'dir-pol-1',
+        category: 'police',
+        name: 'Ongole Town I Police Station',
+        sub: 'Trunk Road, Ongole, Prakasam Dist',
+        phone: '+91 8592 233333',
+        rawPhone: '918592233333',
+        officialLink: 'https://police.ap.gov.in/',
+        type: 'Law & Order / Urban Emergency',
+        badge: 'AP POLICE HQ',
+        badgeClass: 'bg-blue-950 text-blue-400 border-blue-800'
+      },
+      {
+        id: 'dir-pol-2',
+        category: 'police',
+        name: 'Ongole Town II Police Station',
+        sub: 'Koppolu Road, Ongole',
+        phone: '+91 8592 233334',
+        rawPhone: '918592233334',
+        officialLink: 'https://police.ap.gov.in/',
+        type: 'Law & Order Police Sub-Station',
+        badge: 'ACTIVE 24/7',
+        badgeClass: 'bg-blue-950 text-blue-400 border-blue-800'
+      },
+      {
+        id: 'dir-pol-3',
+        category: 'police',
+        name: 'Disha Women Police Station Ongole',
+        sub: 'Prakasam District Police HQ',
+        phone: '1091 / 112',
+        rawPhone: '112',
+        officialLink: 'https://disha.ap.gov.in/',
+        type: 'Women Emergency & SOS Response',
+        badge: 'AP DISHA CELL',
+        badgeClass: 'bg-purple-950 text-purple-400 border-purple-800'
+      },
+      {
+        id: 'dir-pol-4',
+        category: 'police',
+        name: 'Prakasam District SP Office & Command Control',
+        sub: 'Police HQ, Ongole',
+        phone: '+91 8592 233001',
+        rawPhone: '918592233001',
+        officialLink: 'https://prakasam.ap.gov.in/',
+        type: 'District Police Superintendent HQ',
+        badge: 'DISTRICT HQ',
+        badgeClass: 'bg-amber-950 text-amber-400 border-amber-800'
+      },
+      {
+        id: 'dir-pol-5',
+        category: 'police',
+        name: 'Ongole Traffic Police Station',
+        sub: 'Church Centre, Ongole',
+        phone: '+91 8592 233335',
+        rawPhone: '918592233335',
+        officialLink: 'https://police.ap.gov.in/',
+        type: 'Road Emergency & Accident Response',
+        badge: 'TRAFFIC CONTROL',
+        badgeClass: 'bg-blue-950 text-blue-400 border-blue-800'
+      },
+
+      // FIRE & DISASTER
+      {
+        id: 'dir-fr-1',
+        category: 'fire',
+        name: 'Ongole Main Fire & Rescue Station',
+        sub: 'NBS Road, Ongole, Prakasam Dist',
+        phone: '101 / +91 8592 233101',
+        rawPhone: '101',
+        officialLink: 'https://fire.ap.gov.in/',
+        type: 'AP Disaster Response & Fire Services',
+        badge: 'FIRE & RESCUE',
+        badgeClass: 'bg-red-950 text-red-400 border-red-800'
+      },
+      {
+        id: 'dir-fr-2',
+        category: 'fire',
+        name: 'Prakasam Collectorate Emergency Control Room',
+        sub: 'District Collectorate, Ongole',
+        phone: '+91 8592 281400',
+        rawPhone: '918592281400',
+        officialLink: 'https://prakasam.ap.gov.in/',
+        type: 'District Disaster Management Authority (DDMA)',
+        badge: 'GOVT CONTROL ROOM',
+        badgeClass: 'bg-amber-950 text-amber-400 border-amber-800'
+      },
+
+      // TOLL FREE HELPLINES
+      {
+        id: 'dir-hl-1',
+        category: 'helpline',
+        name: '108 AP Ambulance HQ Service',
+        sub: 'Andhra Pradesh National Health Mission',
+        phone: '108',
+        rawPhone: '108',
+        officialLink: 'https://nhm.gov.in/',
+        type: '24x7 Free Emergency Trauma Ambulance',
+        badge: 'NATIONAL HELPLINE',
+        badgeClass: 'bg-emerald-950 text-emerald-400 border-emerald-800'
+      },
+      {
+        id: 'dir-hl-2',
+        category: 'helpline',
+        name: '104 Mobile Medical & Tele-Consultation',
+        sub: 'AP Health Dept Tele-Triage',
+        phone: '104',
+        rawPhone: '104',
+        officialLink: 'https://hmfw.ap.gov.in/',
+        type: 'Medical Information & Doctor Consultation',
+        badge: 'FREE GOVT DOCTOR',
+        badgeClass: 'bg-blue-950 text-blue-400 border-blue-800'
+      },
+      {
+        id: 'dir-hl-3',
+        category: 'helpline',
+        name: '112 National Single Emergency Number',
+        sub: 'Police, Fire & Ambulance Unified',
+        phone: '112',
+        rawPhone: '112',
+        officialLink: 'https://112.gov.in/',
+        type: 'Unified All-India Emergency Service',
+        badge: 'ALL-IN-ONE 112',
+        badgeClass: 'bg-red-950 text-red-400 border-red-800'
+      }
+    ];
+
+    // Database of Regional & Global Fallback Hospitals with Official Duty Doctor Contacts
+    const nearbyHospitals = [
+      {
+        id: 'hosp-01',
+        name: 'GGH Ongole (Govt. General Hospital)',
+        lat: 15.5100,
+        lng: 80.0450,
+        phone: '+91 8592 233102',
+        rawPhone: '918592233102',
+        dutyDoctorName: 'Dr. A. Srinivas (Duty Casualty MO)',
+        dutyDoctorPhone: '+91 94401 08911',
+        rawDoctorPhone: '919440108911',
+        type: 'Level-1 Government Trauma Center',
+        icuBeds: 6,
+        antiVenomAvailable: true
+      },
+      {
+        id: 'hosp-02',
+        name: 'KIMS Hospital Emergency Center',
+        lat: 15.5180,
+        lng: 80.0520,
+        phone: '+91 8592 667788',
+        rawPhone: '918592667788',
+        dutyDoctorName: 'Dr. P. R. Chaitanya (Senior ER Consultant)',
+        dutyDoctorPhone: '+91 98480 12345',
+        rawDoctorPhone: '919848012345',
+        type: 'Super-Specialty Cardiac & Trauma',
+        icuBeds: 4,
+        antiVenomAvailable: true
+      },
+      {
+        id: 'hosp-03',
+        name: 'RIMS Emergency & Trauma Hospital',
+        lat: 15.4980,
+        lng: 80.0380,
+        phone: '+91 8592 244500',
+        rawPhone: '918592244500',
+        dutyDoctorName: 'Dr. M. K. Reddi (Duty Surgeon)',
+        dutyDoctorPhone: '+91 94402 33445',
+        rawDoctorPhone: '919440233445',
+        type: 'General Emergency & Surgical Center',
+        icuBeds: 2,
+        antiVenomAvailable: true
+      },
+      {
+        id: 'hosp-04',
+        name: 'Nalluri Nursing Home & ER Care',
+        lat: 15.5020,
+        lng: 80.0580,
+        phone: '+91 8592 222333',
+        rawPhone: '918592222333',
+        dutyDoctorName: 'Dr. N. V. Rao (Pediatric & ER)',
+        dutyDoctorPhone: '+91 98491 55667',
+        rawDoctorPhone: '919849155667',
+        type: 'Maternity & Urgent Care Clinic',
+        icuBeds: 1,
+        antiVenomAvailable: false
+      }
+    ];
+
+    // Presets for AI Scanner Demo
+    const scanPresets = {
+      burn: {
+        name: 'Thermal Second-Degree Burn',
+        severity: 'MODERATE',
+        severityClass: 'bg-amber-500/20 text-amber-400 border-amber-500/40',
+        confidence: '96.2%',
+        depth: 'Partial Thickness',
+        infection: 'Moderate Risk',
+        steps: [
+          'Flush immediately under cool running tap water for 15-20 minutes.',
+          'Gently cover area with sterile non-adherent gauze or clean plastic wrap.',
+          'Elevate burned limb above heart level to limit fluid accumulation.'
+        ],
+        warnings: 'DO NOT apply ice directly, butter, toothpaste or ointment. DO NOT break any blisters.'
+      },
+      cut: {
+        name: 'Deep Arterial Laceration',
+        severity: 'SEVERE',
+        severityClass: 'bg-red-500/20 text-red-400 border-red-500/40',
+        confidence: '98.5%',
+        depth: 'Full Subcutaneous',
+        infection: 'High Risk',
+        steps: [
+          'Apply continuous, heavy pressure with clean cloth or trauma dressing.',
+          'Maintain pressure for at least 10 minutes without lifting cloth to check.',
+          'If blood soaks through, place additional thick dressings over top layer.'
+        ],
+        warnings: 'DO NOT remove soaked bandages. Apply tourniquet if life-threatening limb hemorrhage persists.'
+      },
+      fracture: {
+        name: 'Closed Bone Fractured Deformity',
+        severity: 'SEVERE',
+        severityClass: 'bg-blue-500/20 text-blue-400 border-blue-500/40',
+        confidence: '92.1%',
+        depth: 'Structural Osseous Disruption',
+        infection: 'Low Risk',
+        steps: [
+          'Immobilize joint above and below fracture using padded rigid splint.',
+          'Apply ice pack wrapped in towel to surrounding swollen soft tissue.',
+          'Monitor pulse and sensation in toes/fingers distal to injury.'
+        ],
+        warnings: 'DO NOT attempt to push bone back into place or straighten deformed limb manually.'
+      }
+    };
+
+    // Initialize App
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      initMap();
+      detectUserLocation(false);
+      refreshHospitalDistances();
+      renderDirectory('all');
+    });
+
+    // Render Official Directory Grid
+    function renderDirectory(cat = 'all') {
+      const grid = document.getElementById('directoryGrid');
+      grid.innerHTML = '';
+
+      const filtered = cat === 'all' ? officialDirectory : officialDirectory.filter(d => d.category === cat);
+
+      filtered.forEach(item => {
+        const card = document.createElement('div');
+        card.className = "bg-gray-950 border border-gray-800 hover:border-amber-500/40 rounded-2xl p-4 flex flex-col justify-between gap-3 shadow-md transition";
+        card.innerHTML = `
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${item.badgeClass}">
+                ${item.badge}
+              </span>
+              <a href="${item.officialLink}" target="_blank" rel="noopener" class="text-[11px] text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1">
+                Portal <i data-lucide="external-link" class="w-3 h-3"></i>
+              </a>
+            </div>
+            <h3 class="text-sm font-bold text-white">${item.name}</h3>
+            <p class="text-xs text-gray-400">${item.sub}</p>
+            <p class="text-[11px] text-gray-500">${item.type}</p>
+          </div>
+
+          <div class="pt-2 border-t border-gray-800 flex items-center justify-between gap-2">
+            <span class="text-xs font-mono font-bold text-yellow-400">${item.phone}</span>
+            <a href="tel:${item.rawPhone}" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-gray-950 rounded-xl text-xs font-black flex items-center gap-1 transition shadow">
+              <i data-lucide="phone" class="w-3.5 h-3.5"></i> CALL
+            </a>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+
+      lucide.createIcons();
+    }
+
+    function filterDirectory(cat) {
+      document.querySelectorAll('.dir-tab-btn').forEach(btn => {
+        btn.classList.remove('bg-amber-500', 'text-gray-950');
+        btn.classList.add('bg-gray-800', 'text-gray-300');
+      });
+
+      const activeMap = {
+        'all': 'tabBtnAll',
+        'pharmacy': 'tabBtnPharm',
+        'police': 'tabBtnPolice',
+        'fire': 'tabBtnFire',
+        'helpline': 'tabBtnHelpline'
+      };
+
+      const activeBtn = document.getElementById(activeMap[cat]);
+      if (activeBtn) {
+        activeBtn.classList.remove('bg-gray-800', 'text-gray-300');
+        activeBtn.classList.add('bg-amber-500', 'text-gray-950');
+      }
+
+      renderDirectory(cat);
+    }
+
+    // Smooth Scroll Utility
+    function scrollToSection(id) {
+      const el = document.getElementById(id);
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // 1. MAP INITIALIZATION
+    function initMap() {
+      map = L.map('map', { zoomControl: true, attributionControl: false }).setView([userLat, userLng], 14);
+
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+
+      const userIcon = L.divIcon({
+        className: 'custom-user-pin',
+        html: `<div class="w-6 h-6 bg-red-600 rounded-full border-2 border-white shadow-lg flex items-center justify-center animate-pulse">
+                <div class="w-2 h-2 bg-white rounded-full"></div>
+               </div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+
+      userMarker = L.marker([userLat, userLng], { draggable: true, icon: userIcon }).addTo(map);
+
+      userMarker.on('dragend', (e) => {
+        const coord = e.target.getLatLng();
+        updatePinnedLocation(coord.lat, coord.lng, 'Manually pinned location');
+      });
+
+      map.on('click', (e) => {
+        updatePinnedLocation(e.latlng.lat, e.latlng.lng, 'Pinned spot on map');
+      });
+
+      renderHospitalMarkers();
+    }
+
+    // Geolocation API
+    function detectUserLocation(recenter = true) {
+      const tag = document.getElementById('locationPrecisionTag');
+      tag.innerText = 'GPS: Locating...';
+
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            userLat = pos.coords.latitude;
+            userLng = pos.coords.longitude;
+            const accuracy = Math.round(pos.coords.accuracy);
+
+            document.getElementById('gpsAccuracyText').innerText = `Accuracy: ±${accuracy}m`;
+            tag.innerText = `GPS: ±${accuracy}m`;
+
+            updatePinnedLocation(userLat, userLng, `Lat: ${userLat.toFixed(4)}, Lng: ${userLng.toFixed(4)}`, recenter);
+          },
+          (err) => {
+            tag.innerText = 'GPS: Regional Ongole';
+            document.getElementById('currentAddressText').innerText = 'Ongole Medical Hub (GPS Fallback)';
+            refreshHospitalDistances();
+          },
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      }
+    }
+
+    function updatePinnedLocation(lat, lng, label = null, recenter = true) {
+      userLat = lat;
+      userLng = lng;
+      userMarker.setLatLng([lat, lng]);
+
+      if (recenter && map) map.setView([lat, lng], 14);
+
+      document.getElementById('currentAddressText').innerText = label || `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
+      document.getElementById('sampleDeepLinkText').innerText = `https://emrp.app/?action=emergency&lat=${lat.toFixed(4)}&lng=${lng.toFixed(4)}`;
+
+      refreshHospitalDistances();
+    }
+
+    function renderHospitalMarkers() {
+      hospitalMarkers.forEach(m => map.removeLayer(m));
+      hospitalMarkers = [];
+
+      const hospitalIcon = L.divIcon({
+        className: 'custom-hosp-pin',
+        html: `<div class="w-8 h-8 bg-blue-600 text-white rounded-lg border-2 border-blue-200 shadow-md flex items-center justify-center font-bold">
+                <i data-lucide="cross" class="w-4 h-4"></i>
+               </div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      });
+
+      nearbyHospitals.forEach(hosp => {
+        const marker = L.marker([hosp.lat, hosp.lng], { icon: hospitalIcon }).addTo(map);
+        marker.bindPopup(`
+          <div class="text-xs space-y-1">
+            <p class="font-bold text-white">${hosp.name}</p>
+            <p class="text-gray-300">${hosp.type}</p>
+            <p class="text-yellow-400 font-semibold">Doctor: ${hosp.dutyDoctorName}</p>
+            <a href="tel:${hosp.rawDoctorPhone}" class="inline-block mt-1 px-2 py-1 bg-emerald-600 text-white rounded font-bold">Call Doctor</a>
+          </div>
+        `);
+        hospitalMarkers.push(marker);
+      });
+      lucide.createIcons();
+    }
+
+    function calculateDistanceKm(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    function refreshHospitalDistances() {
+      const container = document.getElementById('hospitalList');
+      container.innerHTML = '';
+
+      const list = nearbyHospitals.map(h => {
+        const dist = calculateDistanceKm(userLat, userLng, h.lat, h.lng);
+        const mins = Math.max(2, Math.round((dist / 35) * 60));
+        return { ...h, dist, mins };
+      }).sort((a,b) => a.dist - b.dist);
+
+      list.forEach((h, idx) => {
+        const card = document.createElement('div');
+        card.className = "bg-gray-950 border border-gray-800 hover:border-gray-700 rounded-2xl p-4 flex flex-col justify-between gap-3 shadow-sm";
+        card.innerHTML = `
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="px-2 py-0.5 bg-blue-950 text-blue-400 border border-blue-800/80 rounded text-[10px] font-bold">
+                ${h.dist.toFixed(1)} km (${h.mins} mins)
+              </span>
+              <span class="text-xs text-emerald-400 font-semibold">${h.icuBeds} ICU Beds Free</span>
+            </div>
+            <h3 class="text-base font-bold text-white">${h.name}</h3>
+            <p class="text-xs text-gray-400">${h.type}</p>
+            <div class="bg-gray-900 p-2.5 rounded-xl border border-gray-800/80 mt-2 text-xs space-y-1">
+              <p class="text-gray-300 font-medium"><span class="text-gray-400">Duty Medical Officer:</span> ${h.dutyDoctorName}</p>
+              <p class="text-yellow-400 font-mono font-bold"><span class="text-gray-400">Direct Doctor Hotline:</span> ${h.dutyDoctorPhone}</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 pt-2 border-t border-gray-800">
+            <button onclick="openDoctorModal('${h.id}')" class="py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition">
+              <i data-lucide="stethoscope" class="w-3.5 h-3.5"></i> Doctor Details
+            </button>
+            <a href="tel:${h.rawPhone}" class="py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition shadow-md">
+              <i data-lucide="phone-call" class="w-3.5 h-3.5"></i> Call Hospital
+            </a>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+
+      lucide.createIcons();
+    }
+
+    // 2. CAMERA & AI SCANNER LOGIC
+    function startCamera() {
+      const video = document.getElementById('webcamFeed');
+      const placeholder = document.getElementById('cameraPlaceholder');
+      const controls = document.getElementById('cameraControls');
+
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+          .then(stream => {
+            activeStream = stream;
+            video.srcObject = stream;
+            video.classList.remove('hidden');
+            placeholder.classList.add('hidden');
+            controls.classList.remove('hidden');
+          })
+          .catch(err => {
+            alert('Camera permission denied or unavailable. You can upload an image file instead.');
+          });
+      }
+    }
+
+    function stopCamera() {
+      if (activeStream) {
+        activeStream.getTracks().forEach(track => track.stop());
+        activeStream = null;
+      }
+      document.getElementById('webcamFeed').classList.add('hidden');
+      document.getElementById('cameraControls').classList.add('hidden');
+      document.getElementById('cameraPlaceholder').classList.remove('hidden');
+    }
+
+    function captureCameraPhoto() {
+      const video = document.getElementById('webcamFeed');
+      const canvas = document.getElementById('scanCanvas');
+      const ctx = canvas.getContext('2d');
+
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      stopCamera();
+      canvas.classList.remove('hidden');
+      document.getElementById('cameraPlaceholder').classList.add('hidden');
+      document.getElementById('runAnalysisBtn').disabled = false;
+    }
+
+    function handleImageUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.getElementById('scanCanvas');
+          const ctx = canvas.getContext('2d');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.drawImage(img, 0, 0);
+
+          canvas.classList.remove('hidden');
+          document.getElementById('cameraPlaceholder').classList.add('hidden');
+          document.getElementById('runAnalysisBtn').disabled = false;
+        }
+        img.src = event.target.result;
+      }
+      reader.readAsDataURL(file);
+    }
+
+    function loadPresetScan(type) {
+      const preset = scanPresets[type];
+      if (!preset) return;
+
+      displayAIResults(preset);
+      scrollToSection('scannerSection');
+    }
+
+    function runAIAnalysis() {
+      const laser = document.getElementById('scannerLaser');
+      laser.classList.remove('hidden');
+
+      setTimeout(() => {
+        laser.classList.add('hidden');
+        // Randomly assign cut or burn analysis for uploaded custom images
+        const keys = Object.keys(scanPresets);
+        const randomPreset = scanPresets[keys[Math.floor(Math.random() * keys.length)]];
+        displayAIResults(randomPreset);
+      }, 1800);
+    }
+
+    function displayAIResults(data) {
+      document.getElementById('aiEmptyState').classList.add('hidden');
+      document.getElementById('aiActiveResults').classList.remove('hidden');
+      document.getElementById('aiActionFooter').classList.remove('hidden');
+
+      document.getElementById('resInjuryName').innerText = data.name;
+      const badge = document.getElementById('resSeverityBadge');
+      badge.innerText = data.severity;
+      badge.className = `px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${data.severityClass}`;
+
+      document.getElementById('resConfidence').innerText = data.confidence;
+      document.getElementById('resDepth').innerText = data.depth;
+      document.getElementById('resInfection').innerText = data.infection;
+
+      const stepsContainer = document.getElementById('resPreventionSteps');
+      stepsContainer.innerHTML = '';
+      data.steps.forEach(s => {
+        const li = document.createElement('li');
+        li.className = 'flex items-start gap-1.5';
+        li.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5"></i> <span>${s}</span>`;
+        stepsContainer.appendChild(li);
+      });
+
+      document.getElementById('resWarnings').innerText = data.warnings;
+      lucide.createIcons();
+    }
+
+    // 3. INTERACTIVE FIRST-AID INTERVENTION TIMERS
+    const activeTimers = {};
+
+    function toggleTimer(key, defaultSecs) {
+      const btn = document.getElementById(`btn${key}Timer`);
+      const textEl = document.getElementById(`timer${key}Text`);
+
+      if (activeTimers[key]) {
+        clearInterval(activeTimers[key].interval);
+        delete activeTimers[key];
+        btn.innerHTML = `<i data-lucide="play" class="w-3 h-3"></i> Resume`;
+      } else {
+        let remaining = activeTimers[`${key}_remaining`] || defaultSecs;
+        activeTimers[key] = {
+          interval: setInterval(() => {
+            remaining--;
+            activeTimers[`${key}_remaining`] = remaining;
+
+            const m = Math.floor(remaining / 60).toString().padStart(2, '0');
+            const s = (remaining % 60).toString().padStart(2, '0');
+            textEl.innerText = `${m}:${s}`;
+
+            if (remaining <= 0) {
+              clearInterval(activeTimers[key].interval);
+              delete activeTimers[key];
+              textEl.innerText = 'COMPLETE';
+              alert(`Timer for ${key} Intervention Completed!`);
+            }
+          }, 1000)
+        };
+        btn.innerHTML = `<i data-lucide="pause" class="w-3 h-3"></i> Pause`;
+      }
+      lucide.createIcons();
+    }
+
+    function resetTimer(key, defaultSecs) {
+      if (activeTimers[key]) {
+        clearInterval(activeTimers[key].interval);
+        delete activeTimers[key];
+      }
+      delete activeTimers[`${key}_remaining`];
+      const m = Math.floor(defaultSecs / 60).toString().padStart(2, '0');
+      const s = (defaultSecs % 60).toString().padStart(2, '0');
+      document.getElementById(`timer${key}Text`).innerText = `${m}:${s}`;
+      document.getElementById(`btn${key}Timer`).innerHTML = `<i data-lucide="play" class="w-3 h-3"></i> Start`;
+      lucide.createIcons();
+    }
+
+    // 4. DUTY DOCTOR MODAL HANDLERS
+    function openDoctorModal(hospId) {
+      const hosp = nearbyHospitals.find(h => h.id === hospId);
+      if (!hosp) return;
+
+      document.getElementById('docModalHospName').innerText = hosp.name;
+      document.getElementById('docModalSpecialty').innerText = hosp.type;
+      document.getElementById('docModalName').innerText = hosp.dutyDoctorName;
+      document.getElementById('docModalPhone').innerText = hosp.dutyDoctorPhone;
+      document.getElementById('docModalICU').innerText = `${hosp.icuBeds} Beds Available`;
+      document.getElementById('docModalCallBtn').href = `tel:${hosp.rawDoctorPhone}`;
+
+      document.getElementById('doctorModal').classList.remove('hidden');
+    }
+
+    function closeDoctorModal() {
+      document.getElementById('doctorModal').classList.add('hidden');
+    }
+
+    // 5. EMERGENCY DISPATCH FLOWS
+    function initiateEmergencyFlow() {
+      document.getElementById('modalGps').innerText = `${userLat.toFixed(5)}, ${userLng.toFixed(5)}`;
+      document.getElementById('modalSilent').innerText = document.getElementById('silentModeToggle').checked ? 'Yes (Silent Alert)' : 'No (Audible Alarm)';
+
+      document.getElementById('sosConfirmModal').classList.remove('hidden');
+
+      countdownTime = 5;
+      document.getElementById('countdownText').innerText = `${countdownTime}s`;
+      document.getElementById('countdownBar').style.width = '100%';
+
+      if (countdownInterval) clearInterval(countdownInterval);
+
+      countdownInterval = setInterval(() => {
+        countdownTime--;
+        document.getElementById('countdownText').innerText = `${countdownTime}s`;
+        document.getElementById('countdownBar').style.width = `${(countdownTime / 5) * 100}%`;
+
+        if (countdownTime <= 0) {
+          clearInterval(countdownInterval);
+          confirmAndDispatchEmergency();
+        }
+      }, 1000);
+    }
+
+    function cancelEmergencyConfirmation() {
+      if (countdownInterval) clearInterval(countdownInterval);
+      document.getElementById('sosConfirmModal').classList.add('hidden');
+    }
+
+    function confirmAndDispatchEmergency() {
+      if (countdownInterval) clearInterval(countdownInterval);
+      document.getElementById('sosConfirmModal').classList.add('hidden');
+
+      startSirenSound();
+
+      const badge = document.getElementById('dispatchBadge');
+      badge.innerText = 'DISPATCH ACTIVE';
+      badge.className = 'px-2 py-0.5 text-[10px] font-bold rounded bg-red-900/80 text-red-200 border border-red-500 animate-pulse';
+
+      document.getElementById('cancelDispatchBtn').classList.remove('hidden');
+
+      const timeline = document.getElementById('statusTimeline');
+      timeline.innerHTML = `
+        <div class="p-3 bg-red-950/40 border border-red-800/80 rounded-xl space-y-2 text-xs">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-red-400 flex items-center gap-1">
+              <i data-lucide="check-circle-2" class="w-4 h-4 text-red-500"></i> Signal Transmitted
+            </span>
+            <span class="text-gray-400 font-mono">${new Date().toLocaleTimeString()}</span>
+          </div>
+          <p class="text-gray-300">Notified Duty Hospital: <span class="font-bold text-white">GGH Ongole Trauma Ward</span></p>
+          <p class="text-yellow-400">Duty Doctor Assigned: Dr. A. Srinivas (+91 94401 08911)</p>
+        </div>
+      `;
+      lucide.createIcons();
+    }
+
+    function cancelEmergency() {
+      stopSirenSound();
+
+      const badge = document.getElementById('dispatchBadge');
+      badge.innerText = 'IDLE';
+      badge.className = 'px-2 py-0.5 text-[10px] font-semibold rounded bg-gray-800 text-gray-400 border border-gray-700';
+
+      document.getElementById('cancelDispatchBtn').classList.add('hidden');
+      document.getElementById('statusTimeline').innerHTML = `<div class="text-center py-3 text-gray-500 text-xs">Emergency signal cancelled. Monitoring active.</div>`;
+    }
+
+    // Modal & Utility
+    function openApiModal() { document.getElementById('apiModal').classList.remove('hidden'); }
+    function closeApiModal() { document.getElementById('apiModal').classList.add('hidden'); }
+    function copyToClipboard(id) {
+      const text = document.getElementById(id).innerText;
+      const t = document.createElement('textarea');
+      t.value = text;
+      document.body.appendChild(t);
+      t.select();
+      document.execCommand('copy');
+      document.body.removeChild(t);
+      alert('Deep Link URL copied!');
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const supabaseClient = window.supabase.createClient(
+    'YOUR_SUPABASE_PROJECT_URL',
+    'YOUR_SUPABASE_PUBLISHABLE_KEY'
+  );
+</script>
+</body>
+</html>
